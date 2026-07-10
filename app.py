@@ -165,35 +165,50 @@ def render_sidebar() -> None:
 # ----------------------------------------------------------------------------
 # Main review panel
 # ----------------------------------------------------------------------------
+_MATCH_BADGE = {
+    "exact_sku": ":green-background[&nbsp;Matched by part number&nbsp;]",
+    "attribute_match": ":blue-background[&nbsp;Matched by specifications&nbsp;]",
+    "low_confidence": ":orange-background[&nbsp;Needs your review&nbsp;]",
+    "unknown_sku": ":red-background[&nbsp;Part number not in catalog&nbsp;]",
+    "no_match": ":red-background[&nbsp;No catalog match found&nbsp;]",
+}
+
+
 def render_line(line, done: bool, catalog, run_id: str) -> dict:
     """Render one line item; return the reviewer's decision for it."""
     label, ok = _status_text(line.match.status.value)
     is_flag = _is_flagged(line)
-    header = f"Line {line.line_no}  -  {label}"
+    header = f"Line {line.line_no}  ·  {label}"
     if line.catalog_description:
         header += f"  ({line.catalog_description})"
 
     decision = {"qty": line.extracted.quantity, "kind": "keep", "sku": None}
     with st.expander(header, expanded=is_flag and not done):
-        st.markdown(f"**They asked for:**")
-        st.markdown(f"> {line.source_text}")
-        st.caption(
-            f"Read as: qty {line.extracted.quantity} {line.extracted.uom.value}"
-            f"  |  {_confidence_text(line.extracted.extraction_confidence)}"
-        )
-        st.markdown(f"**What the agent did:** {line.match.rationale}")
+        st.markdown(_MATCH_BADGE.get(line.match.status.value, ""))
 
-        if line.unit_price is not None:
-            st.markdown(
-                f"**Price:** {_money_md(line.unit_price)} / {line.uom.value}  "
-                f"x  {line.extracted.quantity}  =  **{_money_md(line.extended_price)}**"
+        # Requested  ->  Matched, side by side, so the transformation is clear.
+        col_req, col_match = st.columns(2, gap="large")
+        with col_req:
+            st.markdown("**1 · Customer requested**")
+            st.markdown(f"> {line.source_text}")
+            st.caption(
+                f"Read as {line.extracted.quantity} "
+                f"{line.extracted.uom.value if line.extracted.uom else ''}  ·  "
+                f"{_confidence_text(line.extracted.extraction_confidence)}"
             )
-        else:
-            st.warning("Not priced yet -- this line needs your decision below.")
+        with col_match:
+            st.markdown("**2 · Agent selected**")
+            if line.match.matched_sku:
+                st.markdown(f"`{line.match.matched_sku}`")
+                if line.catalog_description:
+                    st.caption(line.catalog_description)
+            else:
+                st.markdown("_No catalog item selected_")
+            st.caption(f"Why: {line.match.rationale}")
 
-        # Quantity is editable on every line.
+        st.markdown("**3 · Quantity & price**")
         qty = st.number_input(
-            "Quantity",
+            "Quantity (editable)",
             min_value=0.01,
             value=float(line.extracted.quantity),
             key=f"qty_{run_id}_{line.line_no}",
@@ -201,10 +216,19 @@ def render_line(line, done: bool, catalog, run_id: str) -> dict:
         )
         decision["qty"] = Decimal(str(qty))
 
+        if line.unit_price is not None:
+            live_total = (line.unit_price * Decimal(str(qty))).quantize(Decimal("0.01"))
+            m1, m2 = st.columns(2)
+            m1.metric(f"Unit price (per {line.uom.value if line.uom else 'unit'})",
+                      _money(line.unit_price))
+            m2.metric("Line total", _money(live_total))
+        else:
+            st.warning("Not priced -- this line needs your decision below.")
+
         # Flagged lines: ONE plain-English question.
         if is_flag and not done:
             st.markdown("---")
-            st.markdown("**Your decision:**")
+            st.markdown("**4 · Your decision**")
             options: list[tuple[str, str, str | None]] = []
             for c in line.match.candidates:
                 options.append(("use", _candidate_label(c.sku, catalog), c.sku))
