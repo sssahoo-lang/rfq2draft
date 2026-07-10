@@ -30,10 +30,71 @@ def _money(value: Decimal | None) -> str | None:
     return format(value.quantize(Decimal("0.01")), "f")
 
 
+def _money_disp(value: Decimal | None) -> str:
+    if value is None:
+        return "-"
+    return f"${value.quantize(Decimal('0.01')):,.2f}"
+
+
+def _qty_disp(value: Decimal) -> str:
+    if value == value.to_integral_value():
+        return str(int(value))
+    return format(value.normalize(), "f")
+
+
+def _max_lead(package: QuotePackage) -> int | None:
+    leads = [ln.lead_time_days for ln in package.lines if ln.lead_time_days is not None]
+    return max(leads) if leads else None
+
+
+def render_customer_quote(package: QuotePackage) -> str:
+    """Customer-facing quotation document (Markdown table) -- the email attachment."""
+    lead = _max_lead(package)
+    lead_line = (
+        f"**Estimated lead time:** {lead} business days\n\n" if lead is not None else ""
+    )
+    header = (
+        f"# Quotation {package.quote_id}\n\n"
+        "**Southeast Hose & Fitting Co.**  \n"
+        "quotes@shfco.com\n\n"
+        "---\n\n"
+        f"**Prepared for:** {package.customer_name or '-'}  \n"
+        f"**Ship to:** {package.ship_to or '-'}  \n"
+        f"**Quote date:** {package.rfq_date or '-'}  \n"
+        f"**Terms:** {package.terms or '-'}  \n"
+        f"{lead_line}"
+        "**Quote valid for:** 30 days from quote date\n\n"
+    )
+    rows = [
+        "| Line | Part Number | Description | Qty | UOM | Unit Price | Extended |",
+        "| --- | --- | --- | ---: | --- | ---: | ---: |",
+    ]
+    for ln in package.lines:
+        if ln.unit_price is None or not ln.match.matched_sku:
+            continue
+        rows.append(
+            f"| {ln.line_no} | {ln.match.matched_sku} | "
+            f"{ln.catalog_description or '-'} | {_qty_disp(ln.extracted.quantity)} | "
+            f"{ln.uom.value if ln.uom else '-'} | {_money_disp(ln.unit_price)} | "
+            f"{_money_disp(ln.extended_price)} |"
+        )
+    rows.append(
+        f"| | | | | | **Subtotal** | **{_money_disp(package.subtotal)}** |"
+    )
+    footer = (
+        "\n\n_All prices in USD. This quotation is prepared for your review; "
+        "please confirm to place an order._\n"
+    )
+    return header + "\n".join(rows) + footer
+
+
 def write_mocks(package: QuotePackage) -> dict[str, Path]:
     """Write mock email send + Intacct Sales Quote payload for an approved package."""
     run_dir = RUNS_DIR / package.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    quote_path = run_dir / "quote.md"
+    quote_path.write_text(render_customer_quote(package), encoding="utf-8")
 
     email_path = run_dir / "sent_email.txt"
     email_path.write_text(
@@ -76,4 +137,8 @@ def write_mocks(package: QuotePackage) -> dict[str, Path]:
         json.dumps(payload, indent=2) + "\n",
         encoding="utf-8",
     )
-    return {"sent_email": email_path, "intacct_payload": intacct_path}
+    return {
+        "quote": quote_path,
+        "sent_email": email_path,
+        "intacct_payload": intacct_path,
+    }

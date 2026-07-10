@@ -299,18 +299,32 @@ def render_outputs(package: QuotePackage, run_id: str) -> None:
         return
     st.markdown("---")
     st.subheader("Ready to send")
-    col = st.columns(2)
+
+    quote = RUNS_DIR / run_id / "quote.md"
     sent = RUNS_DIR / run_id / "sent_email.txt"
     intacct = RUNS_DIR / run_id / "intacct_payload.json"
+
+    # The customer-facing quotation -- the document the email attaches.
+    st.markdown("**Quotation (attached to the email)**")
+    if quote.exists():
+        with st.container(border=True):
+            st.markdown(quote.read_text(encoding="utf-8"))
+    else:
+        st.write("(missing)")
+
+    col = st.columns(2)
     with col[0]:
         st.markdown("**Reply email to the distributor**")
-        st.text(sent.read_text(encoding="utf-8") if sent.exists() else "(missing)")
+        with st.container(border=True):
+            st.text(sent.read_text(encoding="utf-8") if sent.exists() else "(missing)")
     with col[1]:
-        st.markdown("**Sage Intacct record (mocked)**")
+        st.markdown("**Sage Intacct record (mocked ERP write)**")
+        st.caption("Internal system payload -- not shown to the customer.")
         if intacct.exists():
             st.json(json.loads(intacct.read_text(encoding="utf-8")))
         else:
             st.write("(missing)")
+
     with st.expander("Full details (raw data the agent produced)"):
         st.json(json.loads(package.model_dump_json()))
 
