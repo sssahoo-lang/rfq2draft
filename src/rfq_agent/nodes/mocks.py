@@ -94,11 +94,18 @@ def write_mocks(package: QuotePackage) -> dict[str, Path]:
     run_dir = RUNS_DIR / package.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    quote_md = render_customer_quote(package)
+    # Markdown version renders cleanly in the review UI.
     quote_path = run_dir / "quote.md"
-    quote_path.write_text(quote_md, encoding="utf-8")
+    quote_path.write_text(render_customer_quote(package), encoding="utf-8")
 
-    attachment_name = f"Quotation-{package.quote_id}.md"
+    # PDF version is the professional, portable document the email attaches.
+    from rfq_agent.quote_pdf import render_quote_pdf_bytes
+
+    pdf_bytes = render_quote_pdf_bytes(package)
+    pdf_path = run_dir / "quote.pdf"
+    pdf_path.write_bytes(pdf_bytes)
+
+    attachment_name = f"Quotation-{package.quote_id}.pdf"
 
     # Human-readable transcript of the "sent" email, noting the attachment.
     email_path = run_dir / "sent_email.txt"
@@ -111,7 +118,7 @@ def write_mocks(package: QuotePackage) -> dict[str, Path]:
         encoding="utf-8",
     )
 
-    # A real, openable email file with the quotation as an actual MIME
+    # A real, openable email file with the quotation PDF as an actual MIME
     # attachment. This is the mock of the send; no network call is made.
     msg = EmailMessage()
     msg["From"] = "Southeast Hose & Fitting Co. <quotes@shfco.com>"
@@ -119,10 +126,7 @@ def write_mocks(package: QuotePackage) -> dict[str, Path]:
     msg["Subject"] = package.email_subject or ""
     msg.set_content(package.email_body or "")
     msg.add_attachment(
-        quote_md.encode("utf-8"),
-        maintype="text",
-        subtype="markdown",
-        filename=attachment_name,
+        pdf_bytes, maintype="application", subtype="pdf", filename=attachment_name
     )
     eml_path = run_dir / "sent_email.eml"
     eml_path.write_bytes(msg.as_bytes())

@@ -305,12 +305,20 @@ def render_outputs(package: QuotePackage, run_id: str) -> None:
     intacct = RUNS_DIR / run_id / "intacct_payload.json"
 
     # The customer-facing quotation -- the document the email attaches.
-    st.markdown("**Quotation (attached to the email)**")
+    st.markdown("**Quotation (attached to the email as a PDF)**")
     if quote.exists():
         with st.container(border=True):
             st.markdown(quote.read_text(encoding="utf-8"))
     else:
         st.write("(missing)")
+    quote_pdf = RUNS_DIR / run_id / "quote.pdf"
+    if quote_pdf.exists():
+        st.download_button(
+            "Download quotation (PDF)",
+            data=quote_pdf.read_bytes(),
+            file_name=f"Quotation-{package.quote_id}.pdf",
+            mime="application/pdf",
+        )
 
     col = st.columns(2)
     with col[0]:

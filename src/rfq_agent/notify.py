@@ -29,7 +29,7 @@ from email.message import EmailMessage
 from pathlib import Path
 
 from rfq_agent.config import RUNS_DIR
-from rfq_agent.nodes.mocks import render_customer_quote
+from rfq_agent.quote_pdf import render_quote_pdf_bytes
 from rfq_agent.schemas import PackageStatus, QuotePackage
 
 SMTP_HOST = "smtp.gmail.com"
@@ -54,10 +54,10 @@ def _build_message(package: QuotePackage, sender: str, recipient: str) -> EmailM
     msg["Subject"] = package.email_subject or f"Quotation {package.quote_id}"
     msg.set_content(package.email_body or "")
     msg.add_attachment(
-        render_customer_quote(package).encode("utf-8"),
-        maintype="text",
-        subtype="markdown",
-        filename=f"Quotation-{package.quote_id}.md",
+        render_quote_pdf_bytes(package),
+        maintype="application",
+        subtype="pdf",
+        filename=f"Quotation-{package.quote_id}.pdf",
     )
     return msg
 
