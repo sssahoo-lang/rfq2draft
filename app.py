@@ -37,16 +37,6 @@ def _rfq_files() -> list[Path]:
     )
 
 
-def _existing_runs() -> list[str]:
-    if not RUNS_DIR.exists():
-        return []
-    return sorted(
-        d.name
-        for d in RUNS_DIR.iterdir()
-        if d.is_dir() and (d / "quote_package.json").exists()
-    )
-
-
 def _load_package(run_id: str) -> QuotePackage | None:
     path = RUNS_DIR / run_id / "quote_package.json"
     if not path.exists():
@@ -105,40 +95,47 @@ def _candidate_label(sku: str, catalog) -> str:
 # ----------------------------------------------------------------------------
 def render_sidebar() -> None:
     rfqs = _rfq_files()
-    runs = _existing_runs()
     with st.sidebar:
         st.header("1. Pick an RFQ")
-        labels = [p.name for p in rfqs] + [f"(processed) {r}" for r in runs]
-        choice = st.radio("Incoming requests", labels, index=0, label_visibility="collapsed")
+        # One entry per RFQ, marked [processed] if a quote already exists.
+        # Selecting an RFQ shows it immediately -- no separate "Open" click.
+        label_to = {}
+        labels = []
+        for p in rfqs:
+            run = p.stem
+            processed = _load_package(run) is not None
+            label = p.name + ("   [processed]" if processed else "")
+            labels.append(label)
+            label_to[label] = (p, run, processed)
 
-        if choice.startswith("(processed) "):
-            selected_run = choice.removeprefix("(processed) ")
-            selected_rfq = None
+        choice = st.radio("Incoming requests", labels, index=0,
+                          label_visibility="collapsed")
+        selected_rfq, selected_run, has_package = label_to[choice]
+
+        if has_package:
+            # Selecting a processed RFQ shows it right away.
+            st.session_state.active_run = selected_run
+            st.header("2. Actions")
+            st.caption(f"Showing quote for {selected_run}.")
+            with st.expander("Start over on this RFQ"):
+                st.caption("Discards the current draft and re-runs from scratch.")
+                if st.button("Reprocess from scratch", use_container_width=True):
+                    with st.spinner("Reprocessing..."):
+                        result = process_run(selected_rfq)
+                    st.session_state.active_run = result["run_id"]
+                    st.rerun()
         else:
-            selected_rfq = next(p for p in rfqs if p.name == choice)
-            selected_run = selected_rfq.stem
-
-        st.header("2. Process")
-        if selected_rfq is not None and _load_package(selected_run) is None:
+            # Unprocessed -> clear the view and offer to process.
+            st.session_state.active_run = None
+            st.header("2. Process")
             st.caption("Reads the RFQ, extracts line items, matches the catalog, "
                        "and drafts a quote + reply. Takes ~30-60 seconds.")
-            if st.button("Process this RFQ", type="primary", use_container_width=True):
+            if st.button("Process this RFQ", type="primary",
+                         use_container_width=True):
                 with st.spinner("Reading the RFQ and drafting the quote..."):
                     result = process_run(selected_rfq)
                 st.session_state.active_run = result["run_id"]
                 st.rerun()
-        else:
-            if st.button("Open this quote", type="primary", use_container_width=True):
-                st.session_state.active_run = selected_run
-                st.rerun()
-            if selected_rfq is not None:
-                with st.expander("Start over on this RFQ"):
-                    st.caption("Discards the current draft and re-runs from scratch.")
-                    if st.button("Reprocess from scratch", use_container_width=True):
-                        with st.spinner("Reprocessing..."):
-                            result = process_run(selected_rfq)
-                        st.session_state.active_run = result["run_id"]
-                        st.rerun()
 
 
 # ----------------------------------------------------------------------------
