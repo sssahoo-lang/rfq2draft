@@ -12,7 +12,7 @@ load_dotenv()
 # Single model constant for both LLM call sites (extraction + email prose).
 ANTHROPIC_MODEL = "claude-sonnet-4-5"
 
-# Paths derived from this file location (src/rfq_agent/config.py ? project root).
+# Paths derived from this file location (src/rfq_agent/config.py -> project root).
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CATALOG_CSV = PROJECT_ROOT / "catalog" / "product_catalog.csv"
 RFQS_DIR = PROJECT_ROOT / "rfqs"
@@ -23,7 +23,7 @@ MATCH_WEIGHTS = {
     "hose_id_in": 0.25,  # highest: wrong ID is never an acceptable match
     "construction": 0.20,  # SAE/construction drives hydraulic vs pneumatic vs PTFE family
     "category_hint": 0.15,  # hose vs fitting vs clamp vs assembly narrows the candidate set
-    "working_pressure": 0.10,  # directional: catalog PSI must be ? requested
+    "working_pressure": 0.10,  # directional: catalog PSI must be >= requested
     "material": 0.10,  # carbon vs stainless (and PTFE/SS) changes SKU and price
     "end_fittings": 0.10,  # JIC/NPT/ORFS and end pairs define assemblies and fittings
     "length": 0.10,  # assembly length (and sold-by-foot qty context) must align
