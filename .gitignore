@@ -7,4 +7,5 @@ runs/*
 !runs/.gitkeep
 .DS_Store
 .Rhistory
+.claude/
 Fastlane AI - Agent Engineer Assessment (3).pdf
