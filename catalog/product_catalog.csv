@@ -1,0 +1,34 @@
+sku,description,category,hose_id_in,construction,working_pressure_psi,material,length_ft,end_a,end_b,unit_price_usd,uom,lead_time_days,stock_qty
+SHF-H1-0250,"Hydraulic Hose SAE 100R1AT 1/4"" ID",Hydraulic Hose,1/4,SAE 100R1AT,3250,Rubber,,,,4.85,ft,3,2400
+SHF-H1-0375,"Hydraulic Hose SAE 100R1AT 3/8"" ID",Hydraulic Hose,3/8,SAE 100R1AT,2600,Rubber,,,,5.95,ft,3,1800
+SHF-H1-0500,"Hydraulic Hose SAE 100R1AT 1/2"" ID",Hydraulic Hose,1/2,SAE 100R1AT,2300,Rubber,,,,7.2,ft,3,1500
+SHF-H1-0750,"Hydraulic Hose SAE 100R1AT 3/4"" ID",Hydraulic Hose,3/4,SAE 100R1AT,1800,Rubber,,,,10.5,ft,5,900
+SHF-H2-0250,"Hydraulic Hose SAE 100R2AT 1/4"" ID",Hydraulic Hose,1/4,SAE 100R2AT,5800,Rubber,,,,6.75,ft,3,2100
+SHF-H2-0375,"Hydraulic Hose SAE 100R2AT 3/8"" ID",Hydraulic Hose,3/8,SAE 100R2AT,5000,Rubber,,,,8.1,ft,3,1950
+SHF-H2-0500,"Hydraulic Hose SAE 100R2AT 1/2"" ID",Hydraulic Hose,1/2,SAE 100R2AT,4000,Rubber,,,,9.95,ft,3,1600
+SHF-H2-0750,"Hydraulic Hose SAE 100R2AT 3/4"" ID",Hydraulic Hose,3/4,SAE 100R2AT,3125,Rubber,,,,13.4,ft,5,850
+SHF-H2-1000,"Hydraulic Hose SAE 100R2AT 1"" ID",Hydraulic Hose,1,SAE 100R2AT,2500,Rubber,,,,17.8,ft,7,600
+SHF-PN-0250,"Pneumatic Air Hose 1/4"" ID 300 PSI",Pneumatic Hose,1/4,Braided Rubber,300,Rubber,,,,2.15,ft,2,3000
+SHF-PN-0375,"Pneumatic Air Hose 3/8"" ID 300 PSI",Pneumatic Hose,3/8,Braided Rubber,300,Rubber,,,,2.85,ft,2,2800
+SHF-PN-0500,"Pneumatic Air Hose 1/2"" ID 300 PSI",Pneumatic Hose,1/2,Braided Rubber,300,Rubber,,,,3.6,ft,2,2200
+SHF-PTFE-025,"PTFE Hose Stainless Braided 1/4"" ID",PTFE Hose,1/4,PTFE SS Braided,3000,PTFE/SS,,,,12.4,ft,7,500
+SHF-PTFE-050,"PTFE Hose Stainless Braided 1/2"" ID",PTFE Hose,1/2,PTFE SS Braided,2500,PTFE/SS,,,,18.75,ft,10,350
+SHF-ASM-H2-050-36-JJ,"Hydraulic Assembly SAE 100R2AT 1/2"" x 36"" JIC-JIC",Hose Assembly,1/2,SAE 100R2AT,4000,Rubber,3.0,JIC 37° Male,JIC 37° Male,42.5,ea,5,120
+SHF-ASM-H2-050-48-JJ,"Hydraulic Assembly SAE 100R2AT 1/2"" x 48"" JIC-JIC",Hose Assembly,1/2,SAE 100R2AT,4000,Rubber,4.0,JIC 37° Male,JIC 37° Male,48.9,ea,5,85
+SHF-ASM-H2-075-60-JN,"Hydraulic Assembly SAE 100R2AT 3/4"" x 60"" JIC-NPT",Hose Assembly,3/4,SAE 100R2AT,3125,Rubber,5.0,JIC 37° Male,NPT Male,72.0,ea,7,40
+SHF-ASM-H1-038-24-NN,"Hydraulic Assembly SAE 100R1AT 3/8"" x 24"" NPT-NPT",Hose Assembly,3/8,SAE 100R1AT,2600,Rubber,2.0,NPT Male,NPT Male,28.75,ea,3,200
+SHF-FIT-JIC-04M,"JIC 37° Male Fitting 1/4""",Fitting,1/4,,5000,Carbon Steel,,JIC 37° Male,,3.25,ea,2,1500
+SHF-FIT-JIC-06M,"JIC 37° Male Fitting 3/8""",Fitting,3/8,,5000,Carbon Steel,,JIC 37° Male,,3.8,ea,2,1400
+SHF-FIT-JIC-08M,"JIC 37° Male Fitting 1/2""",Fitting,1/2,,5000,Carbon Steel,,JIC 37° Male,,4.6,ea,2,1200
+SHF-FIT-JIC-12M,"JIC 37° Male Fitting 3/4""",Fitting,3/4,,5000,Carbon Steel,,JIC 37° Male,,6.25,ea,3,800
+SHF-FIT-NPT-04M,"NPT Male Fitting 1/4""",Fitting,1/4,,3000,Carbon Steel,,NPT Male,,2.1,ea,2,2000
+SHF-FIT-NPT-06M,"NPT Male Fitting 3/8""",Fitting,3/8,,3000,Carbon Steel,,NPT Male,,2.45,ea,2,1900
+SHF-FIT-NPT-08M,"NPT Male Fitting 1/2""",Fitting,1/2,,3000,Carbon Steel,,NPT Male,,2.95,ea,2,1700
+SHF-FIT-NPT-12M,"NPT Male Fitting 3/4""",Fitting,3/4,,3000,Carbon Steel,,NPT Male,,4.15,ea,3,950
+SHF-FIT-ORFS-06M,"ORFS Male Fitting 3/8""",Fitting,3/8,,6000,Carbon Steel,,ORFS Male,,4.9,ea,3,700
+SHF-FIT-ORFS-08M,"ORFS Male Fitting 1/2""",Fitting,1/2,,6000,Carbon Steel,,ORFS Male,,5.75,ea,3,650
+SHF-FIT-JIC-08M-SS,"JIC 37° Male Fitting 1/2"" Stainless",Fitting,1/2,,5000,Stainless Steel,,JIC 37° Male,,11.2,ea,5,300
+SHF-FIT-NPT-08M-SS,"NPT Male Fitting 1/2"" Stainless",Fitting,1/2,,3000,Stainless Steel,,NPT Male,,8.9,ea,5,400
+SHF-CLP-050,"T-Bolt Hose Clamp 1/2"" Stainless",Clamp,1/2,,,Stainless Steel,,,,1.85,ea,2,2500
+SHF-CLP-075,"T-Bolt Hose Clamp 3/4"" Stainless",Clamp,3/4,,,Stainless Steel,,,,2.1,ea,2,2300
+SHF-CLP-100,"T-Bolt Hose Clamp 1"" Stainless",Clamp,1,,,Stainless Steel,,,,2.45,ea,2,2100

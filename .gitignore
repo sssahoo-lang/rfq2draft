@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.env
+runs/*
+!runs/.gitkeep
+.DS_Store
+.Rhistory
+Fastlane AI - Agent Engineer Assessment (3).pdf
