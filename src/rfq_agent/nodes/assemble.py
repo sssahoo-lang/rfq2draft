@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -40,7 +41,34 @@ def _require_api_key() -> str:
 
 
 def _money_str(value: Decimal) -> str:
+    """Plain two-decimal string without currency symbol (e.g. 10067.50)."""
     return format(value.quantize(Decimal("0.01")), "f")
+
+
+def _money_display(value: Decimal) -> str:
+    """Email-facing subtotal with thousands separators (e.g. $10,067.50)."""
+    quantized = value.quantize(Decimal("0.01"))
+    return f"${quantized:,.2f}"
+
+
+def _human_date(iso: str | None) -> str | None:
+    """ISO YYYY-MM-DD -> 'April 7, 2026'. Returns None if unparseable."""
+    if not iso:
+        return None
+    try:
+        d = date.fromisoformat(iso)
+    except ValueError:
+        return None
+    return f"{d.strftime('%B')} {d.day}, {d.year}"
+
+
+def _quote_subject(quote_id: str, document: RFQDocument, rfq_date: str | None) -> str:
+    if document.subject:
+        return f"Quote {quote_id} - re: {document.subject}"
+    human = _human_date(rfq_date)
+    if human:
+        return f"Quote {quote_id} - re: your RFQ dated {human}"
+    return f"Quote {quote_id} - re: your RFQ"
 
 
 def _normalize_money_token(token: str) -> Decimal:
@@ -148,7 +176,8 @@ def _email_user_payload(
         f"Quote id: {package.quote_id}\n"
         f"Their reference / subject: {their_ref}\n"
         f"Line count: {len(package.lines)}\n"
-        f"Subtotal (ONLY dollar amount you may write): {_money_str(package.subtotal)}\n"
+        f"Subtotal (ONLY dollar amount you may write, exactly): "
+        f"{_money_display(package.subtotal)}\n"
         f"Lead-time summary (max over priced lines): {lead}\n"
         f"Needed by: {package.needed_by or 'not specified'}\n"
         f"Flagged items:\n" + "\n".join(flag_blocks) + "\n\n"
@@ -163,7 +192,7 @@ def _template_email(package: QuotePackage, lead_days: int | None) -> str:
     return (
         f"Hello,\n\n"
         f"Thank you for the RFQ. Please find quote {package.quote_id} for your "
-        f"review. Quote subtotal: ${_money_str(package.subtotal)}. "
+        f"review. Quote subtotal: {_money_display(package.subtotal)}. "
         f"Longest lead time among priced lines: {lead}.\n\n"
         f"Items needing your attention:\n{flags}\n\n"
         f"Line-level pricing is in the attached quote package. "
@@ -211,7 +240,7 @@ def _draft_email_body(
                 "content": (
                     f"Numeric guard failed: {last_violation}. "
                     f"Rewrite the body. The only allowed dollar amount is "
-                    f"{_money_str(package.subtotal)}. Do not invent other "
+                    f"{_money_display(package.subtotal)}. Do not invent other "
                     f"dollar amounts. Do not restate per-line prices."
                 ),
             }
@@ -237,7 +266,7 @@ def _render_review_md(package: QuotePackage, lead_days: int | None) -> str:
         f"- **Customer:** {package.customer_name}",
         f"- **RFQ date:** {package.rfq_date}",
         f"- **Needed by:** {package.needed_by or 'not specified'}",
-        f"- **Subtotal:** ${_money_str(package.subtotal)}",
+        f"- **Subtotal:** {_money_display(package.subtotal)}",
         f"- **Lead-time summary:** {lead}",
         f"- **Status:** {package.status.value}",
         "",
@@ -279,8 +308,8 @@ def _render_review_md(package: QuotePackage, lead_days: int | None) -> str:
                 [
                     "### Price",
                     "",
-                    f"- Unit: ${_money_str(line.unit_price)} / {line.uom}",
-                    f"- Extended: ${_money_str(line.extended_price)}",
+                    f"- Unit: {_money_display(line.unit_price)} / {line.uom}",
+                    f"- Extended: {_money_display(line.extended_price)}",
                     f"- Lead time (days): {line.lead_time_days}",
                     f"- Stock qty: {line.stock_qty}",
                     "",
@@ -382,8 +411,7 @@ def assemble(
     flag_summary = build_flag_summary(quote_lines)
 
     email_to = extracted.contact_email or document.sender
-    their_ref = document.subject or (extracted.rfq_date or run_id)
-    email_subject = f"Quote {quote_id} - re: {their_ref}"
+    email_subject = _quote_subject(quote_id, document, extracted.rfq_date)
 
     package = QuotePackage(
         run_id=run_id,
