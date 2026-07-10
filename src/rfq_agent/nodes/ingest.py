@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from rfq_agent.config import MIN_PDF_TEXT_CHARS, RUNS_DIR
+from rfq_agent.config import RUNS_DIR
 from rfq_agent.schemas import RFQDocument, SourceType
 
 
@@ -64,12 +64,8 @@ def ingest(source_path: str | Path) -> RFQDocument:
         source_type = SourceType.eml
     elif suffix == ".pdf":
         raw_text = _parse_pdf(path)
-        # TODO(P4): multimodal Claude fallback when text extraction is too thin
-        if len(raw_text) < MIN_PDF_TEXT_CHARS:
-            raise RuntimeError(
-                "PDF text extraction produced too little text; multimodal "
-                "fallback arrives with the LLM step"
-            )
+        # Thin PDF text is handled by extract.py multimodal fallback (LLM step).
+        # Sample PDFs extract cleanly; this path is for future scanned docs.
         sender = None
         subject = None
         sent_date = None
