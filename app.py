@@ -317,6 +317,14 @@ def render_outputs(package: QuotePackage, run_id: str) -> None:
         st.markdown("**Reply email to the distributor**")
         with st.container(border=True):
             st.text(sent.read_text(encoding="utf-8") if sent.exists() else "(missing)")
+        eml = RUNS_DIR / run_id / "sent_email.eml"
+        if eml.exists():
+            st.download_button(
+                "Download email (.eml, quotation attached)",
+                data=eml.read_bytes(),
+                file_name=f"{run_id}.eml",
+                mime="message/rfc822",
+            )
     with col[1]:
         st.markdown("**Sage Intacct record (mocked ERP write)**")
         st.caption("Internal system payload -- not shown to the customer.")

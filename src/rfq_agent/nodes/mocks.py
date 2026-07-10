@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
+from email.message import EmailMessage
 from pathlib import Path
 
 from rfq_agent.config import RUNS_DIR
@@ -93,17 +94,38 @@ def write_mocks(package: QuotePackage) -> dict[str, Path]:
     run_dir = RUNS_DIR / package.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    quote_md = render_customer_quote(package)
     quote_path = run_dir / "quote.md"
-    quote_path.write_text(render_customer_quote(package), encoding="utf-8")
+    quote_path.write_text(quote_md, encoding="utf-8")
 
+    attachment_name = f"Quotation-{package.quote_id}.md"
+
+    # Human-readable transcript of the "sent" email, noting the attachment.
     email_path = run_dir / "sent_email.txt"
     email_path.write_text(
         f"To: {package.email_to or ''}\n"
         f"Subject: {package.email_subject or ''}\n"
+        f"Attachments: {attachment_name}\n"
         f"\n"
         f"{package.email_body or ''}\n",
         encoding="utf-8",
     )
+
+    # A real, openable email file with the quotation as an actual MIME
+    # attachment. This is the mock of the send; no network call is made.
+    msg = EmailMessage()
+    msg["From"] = "Southeast Hose & Fitting Co. <quotes@shfco.com>"
+    msg["To"] = package.email_to or ""
+    msg["Subject"] = package.email_subject or ""
+    msg.set_content(package.email_body or "")
+    msg.add_attachment(
+        quote_md.encode("utf-8"),
+        maintype="text",
+        subtype="markdown",
+        filename=attachment_name,
+    )
+    eml_path = run_dir / "sent_email.eml"
+    eml_path.write_bytes(msg.as_bytes())
 
     payload = {
         "object": "Sales Quote",
@@ -140,5 +162,6 @@ def write_mocks(package: QuotePackage) -> dict[str, Path]:
     return {
         "quote": quote_path,
         "sent_email": email_path,
+        "sent_email_eml": eml_path,
         "intacct_payload": intacct_path,
     }
