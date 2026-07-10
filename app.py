@@ -333,8 +333,44 @@ def render_outputs(package: QuotePackage, run_id: str) -> None:
         else:
             st.write("(missing)")
 
+    _render_real_send(package, run_id)
+
     with st.expander("Full details (raw data the agent produced)"):
         st.json(json.loads(package.model_dump_json()))
+
+
+def _render_real_send(package: QuotePackage, run_id: str) -> None:
+    """Optional real Gmail send -- only shown when the user has configured it."""
+    from rfq_agent.notify import EmailSendError, gmail_configured, send_via_gmail
+
+    with st.expander("Send this quote for real via Gmail (optional)"):
+        if not gmail_configured():
+            st.info(
+                "Real sending is off. To enable it, set GMAIL_ADDRESS and "
+                "GMAIL_APP_PASSWORD (a Gmail App Password) in your .env, then "
+                "restart the app. Until then, the mock email above is the "
+                "output."
+            )
+            return
+        import os
+        default_to = os.environ.get("GMAIL_ADDRESS", "")
+        st.caption(
+            "The sample RFQ recipient addresses are fictional and will bounce. "
+            "Send to your own address to see it land."
+        )
+        to = st.text_input("Send to", value=default_to, key=f"sendto_{run_id}")
+        marker = RUNS_DIR / run_id / "sent_via_gmail.json"
+        force = False
+        if marker.exists():
+            st.warning("This quote was already sent. Tick to resend.")
+            force = st.checkbox("Resend anyway", key=f"resend_{run_id}")
+        if st.button("Send now", key=f"send_{run_id}"):
+            try:
+                with st.spinner(f"Sending to {to}..."):
+                    rec = send_via_gmail(package, to_override=to or None, force=force)
+                st.success(f"Sent to {rec['sent_to']} at {rec['sent_at']}.")
+            except EmailSendError as exc:
+                st.error(str(exc))
 
 
 def main() -> None:

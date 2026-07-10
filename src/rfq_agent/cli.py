@@ -7,6 +7,8 @@ import sys
 import traceback
 
 from rfq_agent.runner import finalize_run, process_run
+from rfq_agent.schemas import QuotePackage
+from rfq_agent.config import RUNS_DIR
 
 
 def _die(message: str, *, debug: bool = False, exc: BaseException | None = None) -> None:
@@ -78,6 +80,30 @@ def cmd_finalize(
     print(f"intacct_payload: {mocks.get('intacct_payload')}")
 
 
+def cmd_send(
+    run_id: str,
+    *,
+    to: str | None = None,
+    force: bool = False,
+    debug: bool = False,
+) -> None:
+    # Imported lazily so the default pipeline never depends on the send path.
+    from rfq_agent.notify import EmailSendError, send_via_gmail
+
+    path = RUNS_DIR / run_id / "quote_package.json"
+    if not path.exists():
+        _die(f"No quote package for run {run_id} (expected {path}).")
+    package = QuotePackage.model_validate_json(path.read_text(encoding="utf-8"))
+    try:
+        record = send_via_gmail(package, to_override=to, force=force)
+    except EmailSendError as exc:
+        _die(str(exc), debug=debug, exc=exc)
+    except Exception as exc:  # noqa: BLE001
+        _die(f"Send failed: {exc}", debug=debug, exc=exc)
+    print(f"Sent quote {record['quote_id']} to {record['sent_to']} "
+          f"from {record['sent_from']} at {record['sent_at']}.")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="rfq_agent",
@@ -106,6 +132,22 @@ def main(argv: list[str] | None = None) -> None:
         help="Rejection reason (with --reject)",
     )
 
+    p_send = sub.add_parser(
+        "send",
+        help="Optional: send an approved quote for real via Gmail (opt-in)",
+    )
+    p_send.add_argument("run_id", help="Run id of an approved quote")
+    p_send.add_argument(
+        "--to",
+        default=None,
+        help="Override recipient (sample domains bounce; use your own address)",
+    )
+    p_send.add_argument(
+        "--force",
+        action="store_true",
+        help="Resend even if already sent (overrides idempotency guard)",
+    )
+
     args = parser.parse_args(argv)
     if args.command == "process":
         cmd_process(args.rfq_path, debug=args.debug)
@@ -116,6 +158,8 @@ def main(argv: list[str] | None = None) -> None:
             reason=args.reason,
             debug=args.debug,
         )
+    elif args.command == "send":
+        cmd_send(args.run_id, to=args.to, force=args.force, debug=args.debug)
     else:
         _die(f"Unknown command: {args.command}")
 

@@ -92,7 +92,17 @@ About 2 Claude calls per RFQ (extract + email). Wall time is usually tens of sec
 
 ## What is mocked and why
 
-Outbound email send and Sage Intacct writes are mocked: finalize writes `sent_email.txt` and a production-shaped `intacct_payload.json` under `runs/<run_id>/` instead of calling SMTP or Intacct. That keeps the assessment focused on agent logic and the human approval gate. Production auth, objects, failure handling, and where the gate sits are described in the decision doc.
+Outbound email send and Sage Intacct writes are mocked by default: finalize writes `quote.md` (customer quotation), `sent_email.txt`, `sent_email.eml` (a real email file with the quotation attached), and a production-shaped `intacct_payload.json` under `runs/<run_id>/` instead of calling SMTP or Intacct. That keeps the assessment focused on agent logic and the human approval gate. Production auth, objects, failure handling, and where the gate sits are described in the decision doc.
+
+### Optional: real email send via Gmail (off by default)
+
+Sending is disabled unless you opt in. To enable it, set `GMAIL_ADDRESS` and `GMAIL_APP_PASSWORD` (a Gmail App Password, which requires 2-Step Verification) in `.env`. Then send an approved quote:
+
+```bash
+python -m rfq_agent send <run_id> --to you@example.com
+```
+
+Or use the "Send this quote for real via Gmail" panel in the UI. Sending only works on an approved quote, is idempotent (won't double-send without `--force`), and the sample RFQ recipient domains are fictional — send to your own address. No credentials live in the code; both values are read from the environment.
 
 ## Repo map
 
