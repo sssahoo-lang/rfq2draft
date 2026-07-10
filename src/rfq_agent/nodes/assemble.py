@@ -106,6 +106,11 @@ def _is_flagged(line: QuoteLine) -> bool:
 def _flag_sentence(line: QuoteLine) -> str:
     status = line.match.status
     sku = line.extracted.sku
+    if "not_available" in line.flags:
+        return (
+            f"Line {line.line_no}: {sku or 'item'} not currently available - "
+            "listed on the quote for reference, excluded from the total."
+        )
     if status == MatchStatus.unknown_sku:
         hints = ", ".join(c.sku for c in line.match.candidates[:3]) or "none"
         return (

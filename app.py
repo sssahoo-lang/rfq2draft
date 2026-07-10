@@ -182,6 +182,10 @@ def render_line(line, done: bool, catalog, run_id: str) -> dict:
             options: list[tuple[str, str, str | None]] = []
             for c in line.match.candidates:
                 options.append(("use", _candidate_label(c.sku, catalog), c.sku))
+            options.append(
+                ("unavailable",
+                 "Keep on quote, mark as not currently available", None)
+            )
             options.append(("remove", "Remove this line from the quote", None))
             if not line.match.candidates:
                 st.caption("No catalog suggestions -- you can remove this line, "
@@ -276,6 +280,10 @@ def _approve(package: QuotePackage, run_id: str, decisions: dict, notes: str) ->
                 line_no=line.line_no, action="replace_sku",
                 replacement_sku=d["sku"], note=notes or None,
             ))
+        elif d["kind"] == "unavailable":
+            overrides.append(LineOverride(
+                line_no=line.line_no, action="mark_unavailable", note=notes or None,
+            ))
         elif d["kind"] == "remove":
             overrides.append(LineOverride(
                 line_no=line.line_no, action="remove_line", note=notes or None,
@@ -300,7 +308,12 @@ def render_outputs(package: QuotePackage, run_id: str) -> None:
     st.markdown("---")
     st.subheader("Ready to send")
 
+    # Backfill quote/email artifacts for runs approved before they existed, so
+    # the quotation always renders instead of showing "(missing)".
     quote = RUNS_DIR / run_id / "quote.md"
+    if not quote.exists():
+        from rfq_agent.nodes.mocks import write_mocks
+        write_mocks(package)
     sent = RUNS_DIR / run_id / "sent_email.txt"
     intacct = RUNS_DIR / run_id / "intacct_payload.json"
 

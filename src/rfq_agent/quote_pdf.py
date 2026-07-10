@@ -137,6 +137,20 @@ def render_quote_pdf_bytes(package: QuotePackage) -> bytes:
         ("TOPPADDING", (0, last), (-1, last), 8),
     ]))
     story.append(table)
+
+    unavailable = [ln for ln in package.lines if "not_available" in ln.flags]
+    if unavailable:
+        story.append(Spacer(1, 12))
+        items = "<br/>".join(
+            f"Line {ln.line_no}: {ln.extracted.sku or ln.source_text}"
+            for ln in unavailable
+        )
+        story.append(Paragraph(
+            f"<b>Items not currently available</b> "
+            f"({len(unavailable)} item(s), not included in the total):<br/>{items}",
+            ParagraphStyle("na", parent=styles["Normal"], fontSize=9,
+                           textColor=colors.HexColor("#8a4b00"), leading=13)))
+
     story.append(Paragraph(
         "All prices in USD. This quotation is prepared for your review; "
         "please confirm to place an order.", footer))

@@ -89,8 +89,13 @@ only after the core loop was verified, and it added no pipeline logic.
   quoted-but-unrecorded order is worse than a slow reply.
 
 The human step is real, not ceremonial: the reviewer sees a rationale per line,
-edits any field, must resolve every flag before approval unlocks, and can
-reject outright.
+edits any field, and must resolve every flag before approval unlocks. On a
+flagged line they can accept the suggested match, swap in a different SKU, keep
+the line but mark it *not currently available* (it stays on the quote for
+reference, excluded from the total), or remove it — the system never decides
+fulfillment for them. A single unavailable item never rejects the whole quote;
+the rest is priced and sent normally. The reviewer can also reject the entire
+quote outright.
 
 ## Sage Intacct integration (production design; mocked here)
 

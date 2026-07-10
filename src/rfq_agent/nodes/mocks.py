@@ -82,11 +82,22 @@ def render_customer_quote(package: QuotePackage) -> str:
     rows.append(
         f"| | | | | | **Subtotal** | **{_money_disp(package.subtotal)}** |"
     )
+    unavailable = [ln for ln in package.lines if "not_available" in ln.flags]
+    note = ""
+    if unavailable:
+        items = "\n".join(
+            f"- Line {ln.line_no}: {ln.extracted.sku or ln.source_text}"
+            for ln in unavailable
+        )
+        note = (
+            f"\n\n**Items not currently available** "
+            f"({len(unavailable)} item(s), not included in the total):\n{items}\n"
+        )
     footer = (
         "\n\n_All prices in USD. This quotation is prepared for your review; "
         "please confirm to place an order._\n"
     )
-    return header + "\n".join(rows) + footer
+    return header + "\n".join(rows) + note + footer
 
 
 def write_mocks(package: QuotePackage) -> dict[str, Path]:

@@ -115,6 +115,34 @@ def _apply_overrides(
             )
             continue
 
+        if action == "mark_unavailable":
+            # Keep the line on the quote, unpriced, noted as not available.
+            # The rest of the quote proceeds normally; this satisfies the gate
+            # because the reviewer made an explicit decision.
+            match = line.match.model_copy(
+                update={"needs_human_review": False, "matched_sku": None}
+            )
+            flags = [
+                f for f in line.flags
+                if f not in {"unknown_sku", "low_confidence", "no_match"}
+            ]
+            if "not_available" not in flags:
+                flags.append("not_available")
+            lines_by_no[ov.line_no] = line.model_copy(update={
+                "match": match,
+                "unit_price": None,
+                "extended_price": None,
+                "lead_time_days": None,
+                "stock_qty": None,
+                "catalog_description": None,
+                "flags": flags,
+            })
+            audit.append(
+                f"Line {ov.line_no}: marked not currently available"
+                + (f" ({ov.note})" if ov.note else "")
+            )
+            continue
+
         if action == "replace_sku":
             if not ov.replacement_sku:
                 raise FinalizeBlockedError(
@@ -136,8 +164,8 @@ def _apply_overrides(
             continue
 
         raise FinalizeBlockedError(
-            f"Line {ov.line_no}: unknown override action {action!r}. "
-            "Use accept_suggested, replace_sku, or remove_line."
+            f"Line {ov.line_no}: unknown override action {action!r}. Use "
+            "accept_suggested, replace_sku, remove_line, or mark_unavailable."
         )
 
     remaining = sorted(lines_by_no.values(), key=lambda ln: ln.line_no)
