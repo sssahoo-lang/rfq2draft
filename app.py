@@ -1,4 +1,10 @@
-"""Streamlit review UI -- thin window over runner + runs/<id>/ files."""
+"""Streamlit review UI -- thin window over runner + runs/<id>/ files.
+
+This file contains NO pipeline logic. Every action calls the same shared
+functions the CLI uses (process_run / finalize_run) and reads/writes the same
+runs/<id>/quote_package.json a command-line reviewer would edit. If this UI is
+removed, the system still runs end to end from the terminal.
+"""
 
 from __future__ import annotations
 
@@ -8,11 +14,21 @@ from pathlib import Path
 
 import streamlit as st
 
-from rfq_agent.config import RFQS_DIR, RUNS_DIR
+from rfq_agent.catalog.loader import load_catalog_index
+from rfq_agent.config import CATALOG_CSV, RFQS_DIR, RUNS_DIR
 from rfq_agent.runner import finalize_run, process_run
 from rfq_agent.schemas import LineOverride, QuotePackage
 
 st.set_page_config(page_title="RFQ Quote Review", layout="wide")
+
+# Human-readable labels for internal match statuses (reviewer never sees enums).
+STATUS_LABEL = {
+    "exact_sku": ("Matched by part number", True),
+    "attribute_match": ("Matched by specifications", True),
+    "low_confidence": ("Needs your review", False),
+    "unknown_sku": ("Part number not in catalog", False),
+    "no_match": ("No catalog match found", False),
+}
 
 
 def _rfq_files() -> list[Path]:
@@ -43,6 +59,10 @@ def _save_package(package: QuotePackage) -> None:
     path.write_text(package.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
 
+def _catalog():
+    return load_catalog_index(CATALOG_CSV)
+
+
 def _is_flagged(line) -> bool:
     return line.match.needs_human_review or line.unit_price is None
 
@@ -53,200 +73,269 @@ def _money(value: Decimal | None) -> str:
     return f"${value.quantize(Decimal('0.01')):,.2f}"
 
 
-def main() -> None:
-    st.title("RFQ Quote Review")
+def _status_text(status: str) -> tuple[str, bool]:
+    return STATUS_LABEL.get(status, (status, False))
+
+
+def _confidence_text(conf: float) -> str:
+    pct = int(round(conf * 100))
+    if conf >= 0.85:
+        return f"high confidence ({pct}%)"
+    if conf >= 0.6:
+        return f"medium confidence ({pct}%)"
+    return f"low confidence ({pct}%)"
+
+
+def _candidate_label(sku: str, catalog) -> str:
+    """Human-readable option text: what the product is and what it costs."""
+    product = catalog.get(sku)
+    if product is None:
+        return f"Use {sku}"
+    price = f"{_money(product.unit_price_usd)}/{product.uom.value}"
+    return f"Use {sku}  -  {product.description}  ({price})"
+
+
+# ----------------------------------------------------------------------------
+# Sidebar: pick a source and process it
+# ----------------------------------------------------------------------------
+def render_sidebar() -> None:
     rfqs = _rfq_files()
     runs = _existing_runs()
-
     with st.sidebar:
-        st.header("Source")
-        labels = [p.name for p in rfqs] + [f"[run] {r}" for r in runs]
-        choice = st.radio("RFQs / existing runs", labels, index=0)
-        if choice.startswith("[run] "):
-            selected_run = choice.removeprefix("[run] ")
+        st.header("1. Pick an RFQ")
+        labels = [p.name for p in rfqs] + [f"(processed) {r}" for r in runs]
+        choice = st.radio("Incoming requests", labels, index=0, label_visibility="collapsed")
+
+        if choice.startswith("(processed) "):
+            selected_run = choice.removeprefix("(processed) ")
             selected_rfq = None
         else:
             selected_rfq = next(p for p in rfqs if p.name == choice)
             selected_run = selected_rfq.stem
 
-        if "active_run" not in st.session_state:
-            st.session_state.active_run = None
-
-        if selected_rfq is not None:
-            existing = _load_package(selected_run)
-            if existing is None:
-                if st.button("Process RFQ", type="primary"):
-                    with st.spinner("Processing RFQ (extraction + email)..."):
-                        result = process_run(selected_rfq)
-                    st.session_state.active_run = result["run_id"]
-                    st.rerun()
-            else:
-                st.info(f"Run exists: {selected_run}")
-                if st.button("Load existing run"):
-                    st.session_state.active_run = selected_run
-                    st.rerun()
-                if st.button("Reprocess from scratch"):
-                    if st.session_state.get("confirm_reprocess") != selected_run:
-                        st.session_state.confirm_reprocess = selected_run
-                        st.warning("Click again to confirm reprocess.")
-                    else:
+        st.header("2. Process")
+        if selected_rfq is not None and _load_package(selected_run) is None:
+            st.caption("Reads the RFQ, extracts line items, matches the catalog, "
+                       "and drafts a quote + reply. Takes ~30-60 seconds.")
+            if st.button("Process this RFQ", type="primary", use_container_width=True):
+                with st.spinner("Reading the RFQ and drafting the quote..."):
+                    result = process_run(selected_rfq)
+                st.session_state.active_run = result["run_id"]
+                st.rerun()
+        else:
+            if st.button("Open this quote", type="primary", use_container_width=True):
+                st.session_state.active_run = selected_run
+                st.rerun()
+            if selected_rfq is not None:
+                with st.expander("Start over on this RFQ"):
+                    st.caption("Discards the current draft and re-runs from scratch.")
+                    if st.button("Reprocess from scratch", use_container_width=True):
                         with st.spinner("Reprocessing..."):
                             result = process_run(selected_rfq)
                         st.session_state.active_run = result["run_id"]
-                        st.session_state.confirm_reprocess = None
                         st.rerun()
+
+
+# ----------------------------------------------------------------------------
+# Main review panel
+# ----------------------------------------------------------------------------
+def render_line(line, done: bool, catalog, run_id: str) -> dict:
+    """Render one line item; return the reviewer's decision for it."""
+    label, ok = _status_text(line.match.status.value)
+    is_flag = _is_flagged(line)
+    header = f"Line {line.line_no}  -  {label}"
+    if line.catalog_description:
+        header += f"  ({line.catalog_description})"
+
+    decision = {"qty": line.extracted.quantity, "kind": "keep", "sku": None}
+    with st.expander(header, expanded=is_flag and not done):
+        st.markdown(f"**They asked for:**")
+        st.markdown(f"> {line.source_text}")
+        st.caption(
+            f"Read as: qty {line.extracted.quantity} {line.extracted.uom.value}"
+            f"  |  {_confidence_text(line.extracted.extraction_confidence)}"
+        )
+        st.markdown(f"**What the agent did:** {line.match.rationale}")
+
+        if line.unit_price is not None:
+            st.markdown(
+                f"**Price:** {_money(line.unit_price)} / {line.uom.value}  "
+                f"x  {line.extracted.quantity}  =  **{_money(line.extended_price)}**"
+            )
         else:
-            if st.button("Load run"):
-                st.session_state.active_run = selected_run
-                st.rerun()
+            st.warning("Not priced yet -- this line needs your decision below.")
+
+        # Quantity is editable on every line.
+        qty = st.number_input(
+            "Quantity",
+            min_value=0.01,
+            value=float(line.extracted.quantity),
+            key=f"qty_{run_id}_{line.line_no}",
+            disabled=done,
+        )
+        decision["qty"] = Decimal(str(qty))
+
+        # Flagged lines: ONE plain-English question.
+        if is_flag and not done:
+            st.markdown("---")
+            st.markdown("**Your decision:**")
+            options: list[tuple[str, str, str | None]] = []
+            for c in line.match.candidates:
+                options.append(("use", _candidate_label(c.sku, catalog), c.sku))
+            options.append(("remove", "Remove this line from the quote", None))
+            if not line.match.candidates:
+                st.caption("No catalog suggestions -- you can remove this line, "
+                           "or edit the JSON directly for a manual SKU.")
+
+            idx = st.radio(
+                "What should we do with this line?",
+                range(len(options)),
+                format_func=lambda i: options[i][1],
+                key=f"decide_{run_id}_{line.line_no}",
+                label_visibility="collapsed",
+            )
+            kind, _, sku = options[idx]
+            decision["kind"] = kind
+            decision["sku"] = sku
+        elif is_flag and done:
+            st.caption("Resolved during finalize.")
+
+    return decision
+
+
+def render_review(package: QuotePackage, run_id: str) -> None:
+    done = package.status.value in {"approved", "rejected"}
+    flagged = [ln for ln in package.lines if _is_flagged(ln)]
+    priced = [ln for ln in package.lines if ln.unit_price is not None]
+    catalog = _catalog()
+
+    # Header
+    st.title("Quote review")
+    top = st.columns([2, 1, 1, 1])
+    top[0].markdown(f"**Customer**  \n{package.customer_name or '-'}")
+    top[1].markdown(f"**Quote**  \n{package.quote_id}")
+    top[2].markdown(f"**Subtotal**  \n{_money(package.subtotal)}")
+    badge = {"approved": "APPROVED", "rejected": "REJECTED",
+             "pending_review": "Awaiting your review"}
+    top[3].markdown(f"**Status**  \n{badge.get(package.status.value, package.status.value)}")
+    st.caption(
+        f"RFQ dated {package.rfq_date or '-'}  |  needed by {package.needed_by or '-'}  "
+        f"|  run: {run_id}"
+    )
+
+    # Progress banner
+    if package.status.value == "approved":
+        st.success("This quote is approved and finalized. Outputs are below.")
+    elif package.status.value == "rejected":
+        st.error(f"This quote was rejected. Reason: {package.reviewer_notes or '-'}")
+    elif flagged:
+        st.warning(
+            f"{len(priced)} of {len(package.lines)} lines are ready. "
+            f"{len(flagged)} line(s) need your decision before you can approve."
+        )
+    else:
+        st.success(
+            f"All {len(package.lines)} lines matched cleanly. "
+            "Review below and approve when ready."
+        )
+
+    st.subheader("Line items")
+    decisions = {
+        ln.line_no: render_line(ln, done, catalog, run_id) for ln in package.lines
+    }
+
+    if done:
+        render_outputs(package, run_id)
+        return
+
+    # Approve / reject
+    st.markdown("---")
+    st.subheader("Approve")
+    notes = st.text_input("Notes for this quote (optional)", value=package.reviewer_notes or "")
+    if st.button("Approve & finalize", type="primary"):
+        _approve(package, run_id, decisions, notes)
+
+    with st.expander("Reject this quote instead"):
+        reason = st.text_input("Why are you rejecting it?")
+        if st.button("Reject quote"):
+            with st.spinner("Recording rejection..."):
+                result = finalize_run(run_id, reject=True, reason=reason or notes or "Rejected")
+            st.warning(result["message"])
+            st.rerun()
+
+
+def _approve(package: QuotePackage, run_id: str, decisions: dict, notes: str) -> None:
+    lines = []
+    overrides: list[LineOverride] = []
+    for line in package.lines:
+        d = decisions[line.line_no]
+        extracted = line.extracted.model_copy(update={"quantity": d["qty"]})
+        lines.append(line.model_copy(update={"extracted": extracted}))
+        if d["kind"] == "use" and d["sku"]:
+            overrides.append(LineOverride(
+                line_no=line.line_no, action="replace_sku",
+                replacement_sku=d["sku"], note=notes or None,
+            ))
+        elif d["kind"] == "remove":
+            overrides.append(LineOverride(
+                line_no=line.line_no, action="remove_line", note=notes or None,
+            ))
+    updated = package.model_copy(update={
+        "lines": lines, "overrides": overrides,
+        "approved": True, "reviewer_notes": notes or None,
+    })
+    _save_package(updated)
+    with st.spinner("Finalizing quote, drafting final email, writing ERP record..."):
+        result = finalize_run(run_id)
+    if result["outcome"] == "blocked":
+        st.error(result["message"])
+    else:
+        st.success(result["message"])
+        st.rerun()
+
+
+def render_outputs(package: QuotePackage, run_id: str) -> None:
+    if package.status.value != "approved":
+        return
+    st.markdown("---")
+    st.subheader("Ready to send")
+    col = st.columns(2)
+    sent = RUNS_DIR / run_id / "sent_email.txt"
+    intacct = RUNS_DIR / run_id / "intacct_payload.json"
+    with col[0]:
+        st.markdown("**Reply email to the distributor**")
+        st.text(sent.read_text(encoding="utf-8") if sent.exists() else "(missing)")
+    with col[1]:
+        st.markdown("**Sage Intacct record (mocked)**")
+        if intacct.exists():
+            st.json(json.loads(intacct.read_text(encoding="utf-8")))
+        else:
+            st.write("(missing)")
+    with st.expander("Full details (raw data the agent produced)"):
+        st.json(json.loads(package.model_dump_json()))
+
+
+def main() -> None:
+    if "active_run" not in st.session_state:
+        st.session_state.active_run = None
+    render_sidebar()
 
     run_id = st.session_state.active_run
     if not run_id:
-        st.write("Select an RFQ and click **Process RFQ** (or load an existing run).")
+        st.title("RFQ Quote Review")
+        st.write(
+            "This tool reads an incoming Request for Quote, matches each line to "
+            "your product catalog, prices it, and drafts a reply -- then hands it "
+            "to you to review and approve."
+        )
+        st.info("Pick an RFQ on the left and click **Process this RFQ** to begin.")
         return
 
     package = _load_package(run_id)
     if package is None:
-        st.error(f"No package for run {run_id}")
+        st.error(f"No quote found for run {run_id}.")
         return
-
-    done = package.status.value in {"approved", "rejected"}
-    flagged = [ln for ln in package.lines if _is_flagged(ln)]
-
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Customer", package.customer_name or "-")
-    c2.metric("Quote", package.quote_id)
-    c3.metric("Subtotal", _money(package.subtotal))
-    c4.metric("Status", package.status.value)
-    st.caption(
-        f"RFQ date: {package.rfq_date or '-'} | "
-        f"Needed by: {package.needed_by or '-'} | Run: {run_id}"
-    )
-
-    if flagged and not done:
-        st.warning("\n".join(package.flag_summary))
-    else:
-        st.success(package.flag_summary[0] if package.flag_summary else "Ready")
-
-    edits: dict[int, dict] = {}
-    for line in package.lines:
-        is_flag = _is_flagged(line)
-        with st.expander(
-            f"Line {line.line_no}: {line.match.status.value}"
-            + (" [NEEDS DECISION]" if is_flag else ""),
-            expanded=is_flag and not done,
-        ):
-            st.markdown(f"> {line.source_text}")
-            st.write(
-                f"SKU `{line.extracted.sku}` | qty {line.extracted.quantity} "
-                f"{line.extracted.uom} | conf {line.extracted.extraction_confidence}"
-            )
-            st.write(line.match.rationale)
-            if line.unit_price is not None:
-                st.write(
-                    f"Price: {_money(line.unit_price)} / {line.uom} | "
-                    f"Extended {_money(line.extended_price)}"
-                )
-            else:
-                st.error("NOT PRICED - needs your decision")
-            qty = st.number_input(
-                f"Quantity L{line.line_no}",
-                min_value=0.01,
-                value=float(line.extracted.quantity),
-                key=f"qty_{run_id}_{line.line_no}",
-                disabled=done,
-            )
-            decision = {"qty": Decimal(str(qty)), "action": None, "sku": None}
-            if is_flag and line.match.candidates:
-                rows = [
-                    {
-                        "sku": c.sku,
-                        "score": round(c.score, 3),
-                        "breakdown": "; ".join(
-                            f"{k}: {v}" for k, v in c.breakdown.items()
-                        ),
-                    }
-                    for c in line.match.candidates
-                ]
-                st.dataframe(rows, use_container_width=True)
-                skus = [c.sku for c in line.match.candidates]
-                default = line.match.matched_sku if line.match.matched_sku in skus else skus[0]
-                pick = st.selectbox(
-                    f"Candidate L{line.line_no}",
-                    skus,
-                    index=skus.index(default),
-                    key=f"cand_{run_id}_{line.line_no}",
-                    disabled=done,
-                )
-                action = st.radio(
-                    f"Action L{line.line_no}",
-                    ["accept_suggested", "replace_sku", "remove_line"],
-                    key=f"act_{run_id}_{line.line_no}",
-                    disabled=done,
-                    horizontal=True,
-                )
-                decision["action"] = action
-                decision["sku"] = pick
-            edits[line.line_no] = decision
-
-    notes = st.text_input("Reviewer notes", value=package.reviewer_notes or "", disabled=done)
-    reject_reason = st.text_input("Reject reason", disabled=done)
-    a1, a2 = st.columns(2)
-    if a1.button("Approve & Finalize", type="primary", disabled=done):
-        lines = []
-        overrides: list[LineOverride] = []
-        for line in package.lines:
-            ed = edits[line.line_no]
-            extracted = line.extracted.model_copy(update={"quantity": ed["qty"]})
-            lines.append(line.model_copy(update={"extracted": extracted}))
-            if ed["action"]:
-                overrides.append(
-                    LineOverride(
-                        line_no=line.line_no,
-                        action=ed["action"],
-                        replacement_sku=(
-                            ed["sku"] if ed["action"] == "replace_sku" else None
-                        ),
-                        note=notes or None,
-                    )
-                )
-        updated = package.model_copy(
-            update={
-                "lines": lines,
-                "overrides": overrides,
-                "approved": True,
-                "reviewer_notes": notes or None,
-            }
-        )
-        _save_package(updated)
-        with st.spinner("Finalizing..."):
-            result = finalize_run(run_id)
-        if result["outcome"] == "blocked":
-            st.error(result["message"])
-        else:
-            st.success(result["message"])
-            st.rerun()
-
-    if a2.button("Reject", disabled=done):
-        with st.spinner("Rejecting..."):
-            result = finalize_run(
-                run_id, reject=True, reason=reject_reason or notes or "Rejected"
-            )
-        st.warning(result["message"])
-        st.rerun()
-
-    if package.status.value == "approved":
-        sent = RUNS_DIR / run_id / "sent_email.txt"
-        intacct = RUNS_DIR / run_id / "intacct_payload.json"
-        with st.expander("Sent email", expanded=True):
-            st.text(sent.read_text(encoding="utf-8") if sent.exists() else "(missing)")
-        with st.expander("Sage Intacct payload", expanded=True):
-            if intacct.exists():
-                st.json(json.loads(intacct.read_text(encoding="utf-8")))
-            else:
-                st.write("(missing)")
-    with st.expander("What the agent did (raw package JSON)"):
-        st.json(json.loads(package.model_dump_json()))
+    render_review(package, run_id)
 
 
 if __name__ == "__main__":
