@@ -1,0 +1,138 @@
+{
+  "customer_name": "Carolina Fluid Power, Inc.",
+  "contact_name": "Mark Reeves",
+  "contact_email": "purchasing@carolinafluidpower.com",
+  "rfq_date": "2026-04-07",
+  "needed_by": "2026-04-21",
+  "ship_to": "Charlotte, NC 28269",
+  "terms": "Net 30",
+  "document_notes": null,
+  "lines": [
+    {
+      "line_no": 1,
+      "source_text": "1 SHF-H2-0500 Hydraulic Hose SAE 100R2AT 1/2\" ID 500 ft",
+      "sku": "SHF-H2-0500",
+      "description": "Hydraulic Hose SAE 100R2AT 1/2\" ID",
+      "quantity": "500",
+      "uom": "ft",
+      "attributes": {
+        "hose_id_in": null,
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": null
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 1.0
+    },
+    {
+      "line_no": 2,
+      "source_text": "2 SHF-H2-0375 Hydraulic Hose SAE 100R2AT 3/8\" ID 300 ft",
+      "sku": "SHF-H2-0375",
+      "description": "Hydraulic Hose SAE 100R2AT 3/8\" ID",
+      "quantity": "300",
+      "uom": "ft",
+      "attributes": {
+        "hose_id_in": null,
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": null
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 1.0
+    },
+    {
+      "line_no": 3,
+      "source_text": "3 SHF-FIT-JIC-08M JIC 37° Male Fitting 1/2\" 50 ea",
+      "sku": "SHF-FIT-JIC-08M",
+      "description": "JIC 37° Male Fitting 1/2\"",
+      "quantity": "50",
+      "uom": "ea",
+      "attributes": {
+        "hose_id_in": null,
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": null
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 1.0
+    },
+    {
+      "line_no": 4,
+      "source_text": "4 SHF-FIT-JIC-06M JIC 37° Male Fitting 3/8\" 50 ea",
+      "sku": "SHF-FIT-JIC-06M",
+      "description": "JIC 37° Male Fitting 3/8\"",
+      "quantity": "50",
+      "uom": "ea",
+      "attributes": {
+        "hose_id_in": null,
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": null
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 1.0
+    },
+    {
+      "line_no": 5,
+      "source_text": "5 SHF-CLP-050 T-Bolt Hose Clamp 1/2\" Stainless 100 ea",
+      "sku": "SHF-CLP-050",
+      "description": "T-Bolt Hose Clamp 1/2\" Stainless",
+      "quantity": "100",
+      "uom": "ea",
+      "attributes": {
+        "hose_id_in": null,
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": null
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 1.0
+    },
+    {
+      "line_no": 6,
+      "source_text": "6 SHF-ASM-H2-050-36-JJ Hydraulic Assembly 1/2\" x 36\" JIC-JIC 25 ea",
+      "sku": "SHF-ASM-H2-050-36-JJ",
+      "description": "Hydraulic Assembly 1/2\" x 36\" JIC-JIC",
+      "quantity": "25",
+      "uom": "ea",
+      "attributes": {
+        "hose_id_in": null,
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": null
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 1.0
+    }
+  ]
+}
