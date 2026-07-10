@@ -17,7 +17,7 @@ import streamlit as st
 from rfq_agent.catalog.loader import load_catalog_index
 from rfq_agent.config import CATALOG_CSV, RFQS_DIR, RUNS_DIR
 from rfq_agent.runner import finalize_run, process_run
-from rfq_agent.schemas import LineOverride, QuotePackage
+from rfq_agent.schemas import LineOverride, PackageStatus, QuotePackage
 
 st.set_page_config(page_title="RFQ Quote Review", layout="wide")
 
@@ -71,6 +71,11 @@ def _money(value: Decimal | None) -> str:
     if value is None:
         return "-"
     return f"${value.quantize(Decimal('0.01')):,.2f}"
+
+
+def _money_md(value: Decimal | None) -> str:
+    # Escape the $ so Streamlit markdown does not interpret it as LaTeX math.
+    return _money(value).replace("$", "\\$")
 
 
 def _status_text(status: str) -> tuple[str, bool]:
@@ -159,8 +164,8 @@ def render_line(line, done: bool, catalog, run_id: str) -> dict:
 
         if line.unit_price is not None:
             st.markdown(
-                f"**Price:** {_money(line.unit_price)} / {line.uom.value}  "
-                f"x  {line.extracted.quantity}  =  **{_money(line.extended_price)}**"
+                f"**Price:** {_money_md(line.unit_price)} / {line.uom.value}  "
+                f"x  {line.extracted.quantity}  =  **{_money_md(line.extended_price)}**"
             )
         else:
             st.warning("Not priced yet -- this line needs your decision below.")
@@ -218,7 +223,7 @@ def render_review(package: QuotePackage, run_id: str) -> None:
     top = st.columns([2, 1, 1, 1])
     top[0].markdown(f"**Customer**  \n{package.customer_name or '-'}")
     top[1].markdown(f"**Quote**  \n{package.quote_id}")
-    top[2].markdown(f"**Subtotal**  \n{_money(package.subtotal)}")
+    top[2].markdown(f"**Subtotal**  \n{_money_md(package.subtotal)}")
     badge = {"approved": "APPROVED", "rejected": "REJECTED",
              "pending_review": "Awaiting your review"}
     top[3].markdown(f"**Status**  \n{badge.get(package.status.value, package.status.value)}")
@@ -231,7 +236,22 @@ def render_review(package: QuotePackage, run_id: str) -> None:
     if package.status.value == "approved":
         st.success("This quote is approved and finalized. Outputs are below.")
     elif package.status.value == "rejected":
-        st.error(f"This quote was rejected. Reason: {package.reviewer_notes or '-'}")
+        st.error(f"This quote was rejected by a reviewer. Reason: "
+                 f"{package.reviewer_notes or '-'}")
+        st.caption(
+            "Rejection is a reviewer decision, not an automatic outcome. An "
+            "unavailable line item never rejects a quote on its own. You can "
+            "reopen this quote to edit and finalize it."
+        )
+        if st.button("Reopen this quote for editing"):
+            reopened = package.model_copy(update={
+                "status": PackageStatus.pending_review,
+                "approved": False,
+                "reviewer_notes": None,
+                "overrides": [],
+            })
+            _save_package(reopened)
+            st.rerun()
     elif flagged:
         st.warning(
             f"{len(priced)} of {len(package.lines)} lines are ready. "
