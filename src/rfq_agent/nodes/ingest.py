@@ -1,4 +1,4 @@
-"""Ingest node: PDF / .eml ? RFQDocument."""
+"""Ingest node: PDF / .eml to RFQDocument."""
 
 from __future__ import annotations
 

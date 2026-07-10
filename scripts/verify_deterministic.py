@@ -26,7 +26,7 @@ def _pass(name: str) -> None:
 
 
 def _fail(name: str, detail: str) -> None:
-    print(f"FAIL: {name} — {detail}")
+    print(f"FAIL: {name} -- {detail}")
     raise AssertionError(f"{name}: {detail}")
 
 
@@ -64,7 +64,7 @@ def check_ingest() -> None:
             assert doc.sent_date, f"{eml_name} missing ISO date"
 
         _pass(name)
-    except Exception as exc:  # noqa: BLE001 — surface as FAIL line
+    except Exception as exc:  # noqa: BLE001 -- surface as FAIL line
         _fail(name, str(exc))
 
 
@@ -145,8 +145,8 @@ def check_rfq004(index) -> None:
         _fail(name, str(exc))
 
 
-def check_rung3_guard(index) -> None:
-    name = "D sku=None raises NotImplementedError"
+def check_rung3_path(index) -> None:
+    name = "D sku=None routes to attribute scorer"
     try:
         extracted = ExtractedRFQ(
             lines=[
@@ -156,18 +156,19 @@ def check_rung3_guard(index) -> None:
                     sku=None,
                     quantity=Decimal("10"),
                     uom=UOM.ft,
-                    attributes=LineAttributes(),
+                    attributes=LineAttributes(
+                        category_hint="clamp",
+                        hose_id_in="1 inch",
+                        material="stainless",
+                    ),
                     extraction_confidence=0.9,
                 )
             ]
         )
-        raised = False
-        try:
-            match_lines(extracted, index)
-        except NotImplementedError as exc:
-            raised = True
-            assert "rung 3" in str(exc).lower() or "attribute" in str(exc).lower()
-        assert raised, "expected NotImplementedError"
+        matches = match_lines(extracted, index)
+        assert len(matches) == 1
+        assert matches[0].status == MatchStatus.attribute_match
+        assert matches[0].matched_sku == "SHF-CLP-100"
         _pass(name)
     except Exception as exc:  # noqa: BLE001
         _fail(name, str(exc))
@@ -179,7 +180,7 @@ def main() -> None:
     check_ingest()
     check_rfq001(index)
     check_rfq004(index)
-    check_rung3_guard(index)
+    check_rung3_path(index)
     print("all deterministic checks passed")
 
 

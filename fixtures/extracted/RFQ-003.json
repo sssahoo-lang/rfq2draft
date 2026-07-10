@@ -1,0 +1,138 @@
+{
+  "customer_name": "Piedmont Hydraulics & Supply",
+  "contact_name": "Dale Whitmire",
+  "contact_email": "orders@piedmonthyd.com",
+  "rfq_date": "2026-04-08",
+  "needed_by": null,
+  "ship_to": "Greensboro, NC",
+  "terms": null,
+  "document_notes": null,
+  "lines": [
+    {
+      "line_no": 1,
+      "source_text": "1 Hydraulic hose, 2-wire braid, 3/4 inch ID, SAE 100R2 rated, need 400 feet 400 ft",
+      "sku": null,
+      "description": "Hydraulic hose, 2-wire braid, 3/4 inch ID, SAE 100R2 rated",
+      "quantity": "400",
+      "uom": "ft",
+      "attributes": {
+        "hose_id_in": "3/4 inch",
+        "construction": "2-wire braid, SAE 100R2 rated",
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": "hydraulic hose"
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 0.9
+    },
+    {
+      "line_no": 2,
+      "source_text": "2 JIC male fitting, 3/4 inch, steel (not stainless) 60 ea",
+      "sku": null,
+      "description": "JIC male fitting, 3/4 inch, steel (not stainless)",
+      "quantity": "60",
+      "uom": "ea",
+      "attributes": {
+        "hose_id_in": "3/4 inch",
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": "carbon steel",
+        "length_ft": null,
+        "end_a": "JIC male",
+        "end_b": null,
+        "category_hint": "fitting"
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 0.9
+    },
+    {
+      "line_no": 3,
+      "source_text": "3 1/2\" hydraulic hose assembly, 48 inches long, JIC both ends 15 ea",
+      "sku": null,
+      "description": "1/2\" hydraulic hose assembly, 48 inches long, JIC both ends",
+      "quantity": "15",
+      "uom": "ea",
+      "attributes": {
+        "hose_id_in": "1/2",
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": "4.0",
+        "end_a": "JIC male",
+        "end_b": "JIC male",
+        "category_hint": "hose assembly"
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 0.9
+    },
+    {
+      "line_no": 4,
+      "source_text": "4 ORFS male fitting 1/2\" 40 ea",
+      "sku": null,
+      "description": "ORFS male fitting 1/2\"",
+      "quantity": "40",
+      "uom": "ea",
+      "attributes": {
+        "hose_id_in": "1/2 inch",
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": "ORFS male",
+        "end_b": null,
+        "category_hint": "fitting"
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 0.9
+    },
+    {
+      "line_no": 5,
+      "source_text": "5 Hose clamp, 1 inch, stainless T-bolt style 75 ea",
+      "sku": null,
+      "description": "Hose clamp, 1 inch, stainless T-bolt style",
+      "quantity": "75",
+      "uom": "ea",
+      "attributes": {
+        "hose_id_in": "1 inch",
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": "stainless",
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": "clamp"
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 0.9
+    },
+    {
+      "line_no": 6,
+      "source_text": "6 High pressure hose, flexible, good for chemical service, 1/4 inch 150 ft",
+      "sku": null,
+      "description": "High pressure hose, flexible, good for chemical service, 1/4 inch",
+      "quantity": "150",
+      "uom": "ft",
+      "attributes": {
+        "hose_id_in": "1/4 inch",
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": "hose"
+      },
+      "requested_delivery": null,
+      "notes": "high pressure, flexible, chemical service",
+      "extraction_confidence": 0.7
+    }
+  ]
+}

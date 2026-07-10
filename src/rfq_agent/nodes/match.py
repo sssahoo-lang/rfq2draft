@@ -1,4 +1,4 @@
-"""Match node: 3-rung deterministic catalog matcher (rungs 1-2 in this step)."""
+"""Match node: 3-rung deterministic catalog matcher."""
 
 from __future__ import annotations
 
@@ -10,18 +10,18 @@ from rfq_agent.schemas import (
     MatchResult,
     MatchStatus,
 )
+from rfq_agent.scoring import score_attribute_line
 
 
 def match_lines(extracted: ExtractedRFQ, index: CatalogIndex) -> list[MatchResult]:
-    """Match each extracted line via SKU rungs 1-2; rung 3 not implemented yet."""
+    """Match each extracted line: SKU rungs 1-2, then attribute rung 3."""
     results: list[MatchResult] = []
     all_skus = list(index.by_sku.keys())
 
     for line in extracted.lines:
         if line.sku is None:
-            raise NotImplementedError(
-                "attribute scorer (rung 3) arrives in a later step"
-            )
+            results.append(score_attribute_line(line, index))
+            continue
 
         sku_key = normalize_sku(line.sku)
         product = index.by_sku.get(sku_key)
@@ -35,7 +35,7 @@ def match_lines(extracted: ExtractedRFQ, index: CatalogIndex) -> list[MatchResul
                     score=None,
                     rationale=(
                         f"SKU provided on RFQ and found in catalog: "
-                        f"{product.sku} \u2014 {product.description}"
+                        f"{product.sku} - {product.description}"
                     ),
                     candidates=[],
                     needs_human_review=False,
