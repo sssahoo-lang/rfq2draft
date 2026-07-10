@@ -1,0 +1,139 @@
+# Decision Doc — Automated RFQ-to-Quote Drafting
+
+**Problem 1 · Fastlane AI Agent Engineer Assessment**
+
+---
+
+## Problem and rationale
+
+I picked Problem 1: the agent that turns an incoming distributor RFQ into a
+drafted quote and reply email. I chose it because its hard part is *judgment*,
+not generation — correctly matching a plain-English line like "hydraulic hose,
+2-wire braid, 3/4 inch" to the one right catalog SKU, and knowing when *not*
+to answer. That plays to how I think an agent should be built: the LLM does
+language, deterministic code does anything involving money, and a human
+approves before anything leaves the building. It also shipped with real
+fixture data (four RFQs, a 33-SKU catalog), which let me prove correctness to
+the penny rather than argue it.
+
+## Approach and build-vs-buy
+
+I built a custom Python pipeline orchestrated with **LangGraph**, using the
+LLM (Claude) at exactly two points: reading the RFQ into structured line items,
+and writing the prose of the reply email. Everything between — catalog
+matching, pricing, totals — is ordinary, testable code, because a system that
+can transpose a digit should never be the source of a number on a quote.
+
+I rejected a **no-code build (Make / n8n)**. Its real strength is prebuilt
+connectors for inboxes and ERPs, which this assessment mocks anyway, while the
+actual core — a weighted matching engine with confidence thresholds and a
+human-readable rationale per line — would degenerate into custom JavaScript
+inside workflow nodes: the same logic with worse version control and testing.
+In production I'd still put no-code where it belongs, as the inbox *trigger* in
+front of this pipeline. I also rejected **letting the LLM do the matching**:
+its confidence scores are uncalibrated, its "reasoning" is a story told after
+the fact rather than the actual decision procedure, and its failure mode is a
+confidently wrong part number — the one error this client explicitly cannot
+afford ("low-confidence matches must be flagged, not silently guessed").
+
+## Architecture
+
+A staged pipeline with a hard human gate in the middle:
+
+1. **Ingest** the PDF or email into normalized text (mocking the inbox).
+2. **Extract** (LLM call 1) — line items, quantities, and specs, each with a
+   confidence score and the *verbatim source text* kept for review.
+3. **Match** — a three-rung deterministic matcher: an exact SKU is
+   authoritative; a SKU not in the catalog is flagged, never substituted
+   (nearest alternatives suggested); a line with no SKU goes to a weighted
+   attribute scorer with hard gates (wrong hose diameter disqualifies;
+   under-rated pressure disqualifies — a hose 10% below spec is a safety miss,
+   not a near-match) and a score normalized over what the customer actually
+   specified.
+4. **Price** — unit price, lead time, and totals from the catalog, in exact
+   decimal math. No LLM output is ever the source of a number.
+5. **Assemble** a single reviewable package: every line shows what the customer
+   wrote, what the agent understood and matched, *why*, and the price — plus a
+   customer-facing **PDF quotation** and a draft reply email (LLM call 2) whose
+   only permitted number is the subtotal, verified by code against the real
+   total.
+6. **Review** — the pipeline pauses on a checkpointed LangGraph interrupt while
+   the ops coordinator reviews (in a small Streamlit screen, or by editing the
+   same JSON file the screen writes). It will not proceed while any flagged
+   line lacks a decision.
+7. **Finalize** — on approval it recomputes every derived number from the
+   edited fields, then emits the reply email with the PDF quote attached and
+   the Sage Intacct record. Both are mocked by default (a real, openable `.eml`
+   and a production-shaped JSON payload).
+
+The review interface is a thin window over the same functions the command line
+uses; the system runs end to end from the terminal without it. I kept it
+because a non-technical coordinator is the intended user and a legible screen
+communicates the agent's reasoning far better than raw JSON — but I built it
+only after the core loop was verified, and it added no pipeline logic.
+
+## Failure modes and human-in-the-loop
+
+- **LLM returns garbage:** a strict schema rejects malformed extraction,
+  retries once with the errors attached, then fails loudly rather than
+  forwarding nonsense.
+- **LLM returns plausible-but-thin output:** the deterministic side catches it.
+  During the build, extraction once dropped the word "pneumatic" from a line —
+  the result was not a wrong match but two lines flagged "needs review" and
+  excluded from the subtotal. Below-threshold confidence and scored ties are
+  first-class outcomes that reach the human as questions, never guesses.
+- **Reviewer edits break the math:** finalize recomputes all totals from the
+  edited fields, so an edited quantity can never leave a stale price.
+- **External system down (production):** the quote holds in "approved, not
+  posted," the customer email is held with it, and the write retries — a
+  quoted-but-unrecorded order is worse than a slow reply.
+
+The human step is real, not ceremonial: the reviewer sees a rationale per line,
+edits any field, must resolve every flag before approval unlocks, and can
+reject outright.
+
+## Sage Intacct integration (production design; mocked here)
+
+The prototype writes the payload to a file. In production:
+
+1. The reviewer approves — **the human gate sits before any external write.**
+2. A worker authenticates to the Intacct Web Services API using a dedicated
+   sender ID and service user; credentials live in a secrets manager, never in
+   config.
+3. It upserts the distributor as a **Customer** if needed, then creates an
+   **Order Entry Sales Quote** transaction — one line per approved item —
+   carrying the RFQ run ID in a custom field for traceability.
+4. Writes are **idempotent** (document reference keyed on the quote ID), so a
+   retry after a timeout cannot create a duplicate quote.
+5. Failures retry with backoff; after N attempts the run is marked "approved,
+   not posted" and surfaced to the coordinator, with the outbound email held
+   until the ERP write confirms.
+
+Outbound email is designed the same way (Gmail API with OAuth service
+credentials behind the same gate). The prototype mocks it by default but
+includes an **opt-in, gated** live Gmail send — off unless the reviewer
+supplies their own credentials — to demonstrate the send path end to end
+without depending on it.
+
+## What would generalize
+
+The reusable template for the next ten clients is the skeleton: document-in →
+schema-validated LLM extraction → deterministic confidence-banded matcher →
+priced package with per-line rationale → checkpointed human gate →
+recompute-on-edit finalize → mocked delivery. What stays client-specific is
+deliberately thin: the catalog schema and attribute weights, the domain
+synonym table ("2-wire" means SAE 100R2AT), the extraction prompt's vocabulary,
+and the ERP field mapping.
+
+## What I'd do with another week
+
+Wire the live inbox trigger with an RFQ classifier; build the real Intacct
+integration behind the existing gate; add a feedback loop that tunes the match
+thresholds from reviewer corrections; and support image/scanned RFQs via the
+multimodal path (stubbed but untested today). At 10x catalog scale the
+matcher's linear scan becomes the bottleneck — the fix is a category/hose-ID
+pre-filter or an index that narrows candidates before the *same* deterministic
+scorer runs, so the auditable scoring logic is unchanged. I'd also grow the
+matcher's offline spec-test (which already pins the gates, normalization,
+pressure direction, margin, and confidence-cap behavior) into a regression
+suite seeded from historical RFQs and their human-approved quotes.

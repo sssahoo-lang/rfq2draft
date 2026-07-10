@@ -321,6 +321,11 @@ def score_attribute_line(
         )
 
     scored: list[MatchCandidate] = []
+    # O(n) full scan: fine at catalog scale (tens to low thousands of SKUs).
+    # At 10x+ (tens of thousands) this becomes the bottleneck; the fix is a
+    # category/hose-id pre-filter or an index that narrows candidates before
+    # feeding this same deterministic scorer -- not a change to the scoring
+    # logic itself. Deliberately not pre-optimized for 33 rows.
     for product in index.products:
         result = _score_product(canon, product, available, denominator, end_lookup)
         if result is None:

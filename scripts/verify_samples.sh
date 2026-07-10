@@ -23,6 +23,7 @@ run_suite() {
 }
 
 run_suite "schemas" scripts/verify_schemas.py
+run_suite "matcher spec (offline)" scripts/verify_matcher_spec.py
 run_suite "deterministic" scripts/verify_deterministic.py
 run_suite "matching" scripts/verify_matching.py
 run_suite "extraction (LLM)" scripts/verify_extraction.py
