@@ -9,6 +9,7 @@ removed, the system still runs end to end from the terminal.
 from __future__ import annotations
 
 import json
+import re
 from decimal import Decimal
 from pathlib import Path
 
@@ -93,43 +94,66 @@ def _candidate_label(sku: str, catalog) -> str:
 # ----------------------------------------------------------------------------
 # Sidebar: pick a source and process it
 # ----------------------------------------------------------------------------
+_STATUS_LINE = {
+    "approved": "Approved & finalized",
+    "rejected": "Rejected",
+    "pending_review": "Ready for your review",
+}
+
+
+def _pretty_name(run_id: str) -> str:
+    tail = run_id.split("_", 1)[1] if "_" in run_id else run_id
+    return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", tail)
+
+
 def render_sidebar() -> None:
     rfqs = _rfq_files()
     with st.sidebar:
-        st.header("1. Pick an RFQ")
-        # One entry per RFQ, marked [processed] if a quote already exists.
-        # Selecting an RFQ shows it immediately -- no separate "Open" click.
-        label_to = {}
-        labels = []
+        st.subheader("Incoming RFQs")
+        st.caption("Select one to view it. Selecting shows the quote right away.")
+
+        options: list[str] = []
+        captions: list[str] = []
         for p in rfqs:
             run = p.stem
-            processed = _load_package(run) is not None
-            label = p.name + ("   [processed]" if processed else "")
-            labels.append(label)
-            label_to[label] = (p, run, processed)
+            pkg = _load_package(run)
+            rfq_id = run.split("_")[0]
+            name = (pkg.customer_name if pkg and pkg.customer_name
+                    else _pretty_name(run))
+            if not any(c.islower() for c in name):  # tidy ALL-CAPS names
+                name = name.title()
+            options.append(f"{rfq_id}  ·  {name}")
+            if pkg is None:
+                captions.append("New  ·  not processed yet")
+            else:
+                fmt = "PDF" if p.suffix.lower() == ".pdf" else "Email"
+                captions.append(
+                    f"{fmt}  ·  {_STATUS_LINE.get(pkg.status.value, pkg.status.value)}"
+                )
 
-        choice = st.radio("Incoming requests", labels, index=0,
-                          label_visibility="collapsed")
-        selected_rfq, selected_run, has_package = label_to[choice]
+        choice = st.radio("Incoming RFQs", options, index=0,
+                          captions=captions, label_visibility="collapsed")
+        idx = options.index(choice)
+        selected_rfq = rfqs[idx]
+        selected_run = selected_rfq.stem
+        has_package = _load_package(selected_run) is not None
+
+        st.divider()
 
         if has_package:
-            # Selecting a processed RFQ shows it right away.
             st.session_state.active_run = selected_run
-            st.header("2. Actions")
-            st.caption(f"Showing quote for {selected_run}.")
-            with st.expander("Start over on this RFQ"):
-                st.caption("Discards the current draft and re-runs from scratch.")
-                if st.button("Reprocess from scratch", use_container_width=True):
+            with st.expander("Re-run this RFQ from scratch"):
+                st.caption("Discards the current draft and processes the RFQ again.")
+                if st.button("Reprocess", use_container_width=True):
                     with st.spinner("Reprocessing..."):
                         result = process_run(selected_rfq)
                     st.session_state.active_run = result["run_id"]
                     st.rerun()
         else:
-            # Unprocessed -> clear the view and offer to process.
             st.session_state.active_run = None
-            st.header("2. Process")
-            st.caption("Reads the RFQ, extracts line items, matches the catalog, "
-                       "and drafts a quote + reply. Takes ~30-60 seconds.")
+            st.caption("This RFQ has not been processed yet. Processing reads it, "
+                       "extracts line items, matches the catalog, and drafts a "
+                       "quote and reply (about 30-60 seconds).")
             if st.button("Process this RFQ", type="primary",
                          use_container_width=True):
                 with st.spinner("Reading the RFQ and drafting the quote..."):
