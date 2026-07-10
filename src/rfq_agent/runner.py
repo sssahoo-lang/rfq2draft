@@ -75,39 +75,35 @@ def finalize_run(
             "mock_paths": {},
         }
 
+    before_pkg = _load_package(run_id)
+    before_subtotal = before_pkg.subtotal if before_pkg is not None else None
+    document = _load_document(run_id)
+
     app = get_compiled_app()
     config = thread_config(run_id)
     snapshot = app.get_state(config)
-    if not snapshot or not snapshot.values:
-        return {
-            "outcome": "blocked",
-            "message": (
-                f"No checkpoint found for run {run_id}. "
-                "Re-run process, then finalize."
-            ),
-            "mock_paths": {},
-        }
-
-    before = snapshot.values.get("package")
-    before_subtotal = before.subtotal if before is not None else None
-    document = _load_document(run_id)
-
-    if not reject:
-        try:
-            validate_edits(run_id, reject=False, document=document)
-        except (FinalizeBlockedError, FinalizeValidationError) as exc:
-            return {
-                "outcome": "blocked",
-                "message": str(exc),
-                "mock_paths": {},
-            }
+    # Resumable only if the graph is paused mid-run (has pending next nodes).
+    # A terminal/absent checkpoint (reopened, reset, or lost) is not resumable;
+    # in that case finalize directly from the on-disk package instead.
+    resumable = bool(snapshot and snapshot.values and snapshot.next)
 
     try:
-        app.update_state(
-            config,
-            {"reject": reject, "reject_reason": reason},
-        )
-        result = app.invoke(None, config)
+        if resumable:
+            if not reject:
+                validate_edits(run_id, reject=False, document=document)
+            app.update_state(config, {"reject": reject, "reject_reason": reason})
+            result = app.invoke(None, config)
+            package = result.get("package") or _load_package(run_id)
+        else:
+            # Disk fallback: complete finalize without the graph. Same nodes,
+            # called directly on the on-disk package.
+            package = validate_edits(
+                run_id, reject=reject, reject_reason=reason, document=document
+            )
+            if package.status == PackageStatus.approved:
+                from rfq_agent.nodes.mocks import write_mocks
+
+                write_mocks(package)
     except (FinalizeBlockedError, FinalizeValidationError) as exc:
         return {"outcome": "blocked", "message": str(exc), "mock_paths": {}}
     except Exception as exc:  # noqa: BLE001
@@ -115,16 +111,9 @@ def finalize_run(
         while cause.__cause__ is not None:
             cause = cause.__cause__
         if isinstance(cause, (FinalizeBlockedError, FinalizeValidationError)):
-            return {
-                "outcome": "blocked",
-                "message": str(cause),
-                "mock_paths": {},
-            }
+            return {"outcome": "blocked", "message": str(cause), "mock_paths": {}}
         raise
 
-    package = result.get("package")
-    if package is None:
-        package = _load_package(run_id)
     if package is None:
         return {
             "outcome": "blocked",
