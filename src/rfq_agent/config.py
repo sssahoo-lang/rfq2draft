@@ -18,7 +18,7 @@ CATALOG_CSV = PROJECT_ROOT / "catalog" / "product_catalog.csv"
 RFQS_DIR = PROJECT_ROOT / "rfqs"
 RUNS_DIR = PROJECT_ROOT / "runs"
 
-# Pre-normalization attribute weights (see DECISIONS.md).
+# Pre-normalization attribute weights (rationale in DECISION.pdf).
 MATCH_WEIGHTS = {
     "hose_id_in": 0.25,  # highest: wrong ID is never an acceptable match
     "construction": 0.20,  # SAE/construction drives hydraulic vs pneumatic vs PTFE family
