@@ -2,6 +2,61 @@
 
 RFQ-to-quote drafting agent prototype for a Fastlane AI take-home assessment. It ingests distributor RFQs (PDF or email), extracts line items, matches them to a product catalog with a deterministic scorer, enriches pricing, and produces a reviewable quote package plus a draft reply email for human approval before any mocked send or ERP write.
 
+## Contents
+
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Setup](#setup)
+- [Quickstart (CLI)](#quickstart-cli)
+- [Quickstart (UI)](#quickstart-ui)
+- [Why each RFQ is interesting](#why-each-rfq-is-interesting)
+- [Verify everything](#verify-everything)
+- [Costs and time](#costs-and-time)
+- [What is mocked and why](#what-is-mocked-and-why)
+- [Repo map](#repo-map)
+
+## Architecture
+
+The pipeline is a [LangGraph](https://github.com/langchain-ai/langgraph) state machine with seven nodes and a checkpointed interrupt in the middle, so a human reviews the quote before anything is sent or written to the ERP. The graph is defined in `src/rfq_agent/graph.py`; state is persisted per run to `runs/checkpoints.db` via `SqliteSaver`.
+
+```mermaid
+flowchart TD
+    START([START]) --> ingest
+    ingest["ingest: read the RFQ file"]
+    extract["extract (LLM): get line items"]
+    fail["fail: write error.txt, stop"]
+    match["match: find catalog SKU"]
+    enrich["enrich: add price and subtotal"]
+    assemble["assemble (LLM): quote and draft email"]
+    validate["validate_edits: apply human edits"]
+    mocks["mocks: write email and ERP payload"]
+
+    ingest --> extract
+    extract -->|ok| match
+    extract -->|error| fail
+    match --> enrich
+    enrich --> assemble
+    assemble -.->|pause for human review| validate
+    validate -->|approved| mocks
+    validate -->|not approved| ENDx([END])
+    mocks --> ENDx
+```
+
+| Node | What it does | LLM? |
+|---|---|---|
+| `ingest` | Parses the RFQ (`pypdf` for PDF, stdlib `email` for `.eml`) into a normalized `RFQDocument`. | No |
+| `extract` | Reads the document into structured line items (`ExtractedRFQ`), each with a confidence score and the verbatim source text. Schema-validated with one retry on failure. | Yes, call 1 |
+| `fail` | Reached only if extraction fails validation twice. Writes `error.txt` and raises. | No |
+| `match` | Three-rung deterministic scorer: exact SKU is authoritative, a SKU not in the catalog is flagged as `unknown_sku` and never substituted, and a line with no SKU goes through a weighted attribute scorer. | No |
+| `enrich` | Attaches unit price, lead time, and stock from the catalog in `Decimal` math, and flags `stock_shortfall` or `deadline_risk`. | No |
+| `assemble` | Builds the reviewable `QuotePackage` and drafts the reply email. A numeric guard checks that the only dollar amount in the email body is the subtotal, with one regeneration attempt and a deterministic template fallback. | Yes, call 2 |
+| `validate_edits` | Re-reads the reviewer's edited JSON, applies overrides, and recomputes every derived value from the catalog. Blocks finalize if any flagged line is still unresolved or `approved` is not `true`. | No |
+| `mocks` | Writes the mocked outputs: `quote.md`, `quote.pdf`, `sent_email.txt`, `sent_email.eml`, and `intacct_payload.json`. | No |
+
+**Matching (rung 3, `src/rfq_agent/scoring.py`).** When a line has no SKU, each catalog product is scored against the attributes the RFQ line actually specifies (hose ID weight 0.25, construction 0.20, category 0.15, pressure 0.10, material 0.10, end fittings 0.10, length 0.10), gated so a wrong hose ID or under-rated pressure disqualifies a candidate outright rather than scoring as a near miss. A match auto-accepts only if its score is at least 0.80, it leads the runner-up by at least 0.10, and the line's extraction confidence is at least 0.60; otherwise it is flagged `low_confidence` or `no_match` and a person decides. Thresholds live in `src/rfq_agent/config.py`.
+
+**Why this shape.** The LLM touches exactly two call sites, extraction and email prose. Everything involving money, matching, or totals is ordinary, testable code, so a hallucination can produce a flagged line but never a wrong price. `src/rfq_agent/runner.py` exposes `process_run` and `finalize_run`; both the CLI (`cli.py`) and the Streamlit UI (`app.py`) call the same two functions and edit the same `runs/<run_id>/quote_package.json`, so the system runs end to end from the terminal with no UI dependency.
+
 ## Prerequisites
 
 - Python 3.11+
