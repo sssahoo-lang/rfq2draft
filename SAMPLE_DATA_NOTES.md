@@ -19,6 +19,12 @@ Treat this file as a stand-in for a product master that would live in the client
 
 4. **RFQ-004_DeltaPower.eml** — Plain-text email with a monospaced table. All SKUs provided, but at least one does not exist in the catalog and should be flagged.
 
+### Added demo RFQs (not part of the original package)
+
+These are self-authored to show the agent generalizes beyond the four provided samples.
+
+5. **RFQ-005_SummitFluidSystems.eml** — Rush email mixing exact SKUs, attribute-only lines, an underspecified "recommend something" line (flagged low-confidence), and a customer-supplied SKU that is not in the catalog (flagged `unknown_sku`). It also deliberately triggers two advisory flags that none of the four provided RFQs reach: a **stock shortfall** (500 ft ordered against 350 in stock) and a **deadline risk** (a 5-day requested window against 7–10 day lead times). One document that exercises every match status plus both availability flags. Expected subtotal $17,037.50; a deterministic regression check for it lives in `scripts/verify_deterministic.py` (check E).
+
 ## Notes
 
 - Nothing here is exhaustive. You do not need to handle every edge case in these files. Make a judgment call about what to solve and what to flag for human review, and defend it in your decision doc.

@@ -31,7 +31,7 @@ def _fail(name: str, detail: str) -> None:
 
 
 def check_ingest() -> None:
-    name = "A ingest smoke (all 4 RFQs)"
+    name = "A ingest smoke (all RFQs)"
     try:
         docs = {}
         for path in sorted(RFQS_DIR.iterdir()):
@@ -39,7 +39,9 @@ def check_ingest() -> None:
                 continue
             docs[path.name] = ingest(path)
 
-        assert len(docs) == 4, f"expected 4 docs, got {len(docs)}"
+        # At least the four provided samples must ingest; extra custom RFQs
+        # (e.g. RFQ-005+) are welcome and should not fail this smoke test.
+        assert len(docs) >= 4, f"expected >= 4 docs, got {len(docs)}"
 
         for pdf_name in (
             "RFQ-001_CarolinaFluidPower.pdf",
@@ -174,6 +176,36 @@ def check_rung3_path(index) -> None:
         _fail(name, str(exc))
 
 
+def check_rfq005(index) -> None:
+    name = "E RFQ-005 custom showcase (exact + specs + shortfall + deadline + review)"
+    try:
+        extracted = ExtractedRFQ.model_validate_json(
+            (FIXTURES / "RFQ-005.json").read_text(encoding="utf-8")
+        )
+        lines, subtotal = enrich(extracted, match_lines(extracted, index), index)
+        byno = {ln.line_no: ln for ln in lines}
+
+        assert byno[1].match.status == MatchStatus.exact_sku
+        assert "deadline_risk" in byno[1].flags
+        assert byno[2].match.status == MatchStatus.attribute_match
+        assert byno[2].match.matched_sku == "SHF-H2-0375"  # two-wire -> R2; R1 gated on pressure
+        assert byno[3].match.status == MatchStatus.attribute_match
+        assert byno[3].match.matched_sku == "SHF-FIT-ORFS-08M"
+        assert byno[4].match.status == MatchStatus.exact_sku
+        assert "stock_shortfall" in byno[4].flags and "deadline_risk" in byno[4].flags
+        assert byno[5].match.status == MatchStatus.low_confidence
+        assert byno[5].unit_price is None
+        assert any(c.sku == "SHF-PTFE-025" for c in byno[5].match.candidates)
+        assert byno[6].match.status == MatchStatus.unknown_sku
+        assert byno[6].unit_price is None
+        assert subtotal == Decimal("17037.50"), f"subtotal={subtotal}"
+        print(f"  subtotal={subtotal}  flags: L1 deadline, L4 shortfall+deadline; "
+              f"L5 review, L6 unknown-SKU")
+        _pass(name)
+    except Exception as exc:  # noqa: BLE001
+        _fail(name, str(exc))
+
+
 def main() -> None:
     index = load_catalog_index(CATALOG_CSV)
     print(f"catalog loaded: {len(index.products)} SKUs")
@@ -181,6 +213,7 @@ def main() -> None:
     check_rfq001(index)
     check_rfq004(index)
     check_rung3_path(index)
+    check_rfq005(index)
     print("all deterministic checks passed")
 
 

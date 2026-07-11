@@ -144,6 +144,21 @@ def build_flag_summary(quote_lines: list[QuoteLine]) -> list[str]:
         summary = [f"{priced} of {total} lines priced; {k} need your attention."]
     for line in flagged:
         summary.append(_flag_sentence(line))
+    # Advisory notes on priced lines: do not block finalize, but the reviewer
+    # (and the distributor) should see them.
+    for line in quote_lines:
+        if line.unit_price is None:
+            continue
+        if "stock_shortfall" in line.flags:
+            summary.append(
+                f"Line {line.line_no}: in-stock quantity is below the amount "
+                "requested - confirm availability or expect a partial shipment."
+            )
+        if "deadline_risk" in line.flags:
+            summary.append(
+                f"Line {line.line_no}: lead time may not meet the requested "
+                "delivery date."
+            )
     return summary
 
 

@@ -58,6 +58,8 @@ def canon_size(raw: str | None) -> str | None:
 _R2_KEYS = (
     "2-wire",
     "2 wire",
+    "two-wire",
+    "two wire",
     "sae 100r2at",
     "sae 100r2",
     "100r2",
@@ -66,6 +68,8 @@ _R2_KEYS = (
 _R1_KEYS = (
     "1-wire",
     "1 wire",
+    "one-wire",
+    "one wire",
     "sae 100r1at",
     "sae 100r1",
     "100r1",

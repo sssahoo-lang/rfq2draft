@@ -42,6 +42,17 @@ def process_run(rfq_path: str | Path) -> dict[str, Any]:
     run_id = path.stem
     app = get_compiled_app()
     config = thread_config(run_id)
+
+    # Reprocessing should re-read the RFQ from scratch, not resume a stale
+    # checkpoint (e.g. from a prior failed extraction). Clear any existing
+    # thread so the graph runs ingest -> extract fresh every time.
+    checkpointer = getattr(app, "checkpointer", None)
+    if checkpointer is not None and hasattr(checkpointer, "delete_thread"):
+        try:
+            checkpointer.delete_thread(run_id)
+        except Exception:  # noqa: BLE001 -- reset is best-effort
+            pass
+
     app.invoke({"rfq_path": str(path), "run_id": run_id}, config)
 
     review_md = RUNS_DIR / run_id / "review.md"

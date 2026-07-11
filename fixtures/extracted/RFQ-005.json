@@ -1,0 +1,138 @@
+{
+  "customer_name": "Summit Fluid Systems",
+  "contact_name": "Ray Delgado",
+  "contact_email": "ray.delgado@summitfluidsystems.com",
+  "rfq_date": "2026-04-13",
+  "needed_by": "2026-04-18",
+  "ship_to": "Asheville, NC",
+  "terms": "Net 30",
+  "document_notes": "Rush job; deliver by 4/18 if possible.",
+  "lines": [
+    {
+      "line_no": 1,
+      "source_text": "200 ft of SHF-H2-1000 (your 1 inch two-wire hydraulic)",
+      "sku": "SHF-H2-1000",
+      "description": null,
+      "quantity": "200",
+      "uom": "ft",
+      "attributes": {
+        "hose_id_in": null,
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": null
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 1.0
+    },
+    {
+      "line_no": 2,
+      "source_text": "400 ft of 3/8\" hydraulic hose, two-wire braid, has to handle at least 3000 psi",
+      "sku": null,
+      "description": null,
+      "quantity": "400",
+      "uom": "ft",
+      "attributes": {
+        "hose_id_in": "3/8",
+        "construction": "two-wire braid",
+        "working_pressure_psi": 3000,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": "hydraulic hose"
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 0.9
+    },
+    {
+      "line_no": 3,
+      "source_text": "150 ORFS male fittings, 1/2 inch",
+      "sku": null,
+      "description": null,
+      "quantity": "150",
+      "uom": "ea",
+      "attributes": {
+        "hose_id_in": "1/2",
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": "ORFS male",
+        "end_b": null,
+        "category_hint": "fitting"
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 0.9
+    },
+    {
+      "line_no": 4,
+      "source_text": "500 ft of SHF-PTFE-050 for a chemical transfer line",
+      "sku": "SHF-PTFE-050",
+      "description": null,
+      "quantity": "500",
+      "uom": "ft",
+      "attributes": {
+        "hose_id_in": null,
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": null
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 1.0
+    },
+    {
+      "line_no": 5,
+      "source_text": "a 1/4\" hose for high-pressure chemical service, needs to stay flexible - about 100 ft",
+      "sku": null,
+      "description": null,
+      "quantity": "100",
+      "uom": "ft",
+      "attributes": {
+        "hose_id_in": "1/4",
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": "hose"
+      },
+      "requested_delivery": null,
+      "notes": "high-pressure chemical service, flexible",
+      "extraction_confidence": 0.7
+    },
+    {
+      "line_no": 6,
+      "source_text": "25 of SHF-ZX-0812 (that's the part number our customer gave us)",
+      "sku": "SHF-ZX-0812",
+      "description": null,
+      "quantity": "25",
+      "uom": "ea",
+      "attributes": {
+        "hose_id_in": null,
+        "construction": null,
+        "working_pressure_psi": null,
+        "material": null,
+        "length_ft": null,
+        "end_a": null,
+        "end_b": null,
+        "category_hint": null
+      },
+      "requested_delivery": null,
+      "notes": null,
+      "extraction_confidence": 1.0
+    }
+  ]
+}
