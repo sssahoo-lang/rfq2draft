@@ -34,6 +34,7 @@ flowchart TD
     ingest --> extract
     extract -->|ok| match
     extract -->|error| fail
+    fail --> ENDx
     match --> enrich
     enrich --> assemble
     assemble -.->|pause for human review| validate
