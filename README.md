@@ -1,6 +1,6 @@
 # rfq2draft
 
-RFQ-to-quote drafting agent prototype for a Fastlane AI take-home assessment. Ingests distributor RFQs (PDF or email), extracts line items, matches them to a product catalog with a deterministic scorer, enriches pricing, and produces a reviewable quote package plus draft reply email for human approval before any mocked send or ERP write.
+RFQ-to-quote drafting agent prototype for a Fastlane AI take-home assessment. It ingests distributor RFQs (PDF or email), extracts line items, matches them to a product catalog with a deterministic scorer, enriches pricing, and produces a reviewable quote package plus a draft reply email for human approval before any mocked send or ERP write.
 
 ## Prerequisites
 
@@ -28,7 +28,7 @@ Process the hardest sample (no SKUs; one ambiguous line the agent will not guess
 python -m rfq_agent process rfqs/RFQ-003_PiedmontHydraulics.pdf
 ```
 
-Open `runs/RFQ-003_PiedmontHydraulics/review.md` -- this is what the agent did and why (extraction, match rationale, prices, draft email).
+Open `runs/RFQ-003_PiedmontHydraulics/review.md`. It shows what the agent did and why: extraction, match rationale, prices, and the draft email.
 
 Resolve the flagged line by editing `runs/RFQ-003_PiedmontHydraulics/quote_package.json`. Set `approved` to `true` and add an override for line 6, for example:
 
@@ -73,10 +73,11 @@ The UI writes the same `runs/<run_id>/quote_package.json` the CLI path edits; bo
 
 ## Why each RFQ is interesting
 
-- **RFQ-001** -- clean tabular PDF; every line has a valid SKU (exact match only).
-- **RFQ-002** -- email with two SKUs plus two attribute-only lines (fuzzy / weighted match).
-- **RFQ-003** -- informal PDF with no SKUs; five clear attribute matches; line 6 is deliberately sparse so the agent flags a tie instead of guessing.
-- **RFQ-004** -- email table with a SKU that is not in the catalog (`SHF-H2-0625`); flagged as `unknown_sku`, never auto-substituted.
+- **RFQ-001**: clean tabular PDF. Every line has a valid SKU, so this is the exact-match path.
+- **RFQ-002**: email with two SKUs plus two attribute-only lines, so both the exact-match and weighted attribute paths run.
+- **RFQ-003**: informal PDF with no SKUs. Five lines resolve on attributes alone, and line 6 is deliberately sparse so the agent flags a tie instead of guessing.
+- **RFQ-004**: email table with a SKU that is not in the catalog (`SHF-H2-0625`). It is flagged as `unknown_sku` and never auto-substituted.
+- **RFQ-005**: a self-authored rush email, added to show the agent generalizes past the four provided samples. It mixes exact SKUs, attribute-only lines, an underspecified line, and an unknown SKU, and it is the only sample that triggers a stock shortfall and a deadline risk flag together. See `SAMPLE_DATA_NOTES.md` for the full breakdown.
 
 ## Verify everything
 
@@ -92,7 +93,7 @@ About 2 Claude calls per RFQ (extract + email). Wall time is usually tens of sec
 
 ## What is mocked and why
 
-Outbound email send and Sage Intacct writes are mocked by default: finalize writes `quote.md` (customer quotation), `sent_email.txt`, `sent_email.eml` (a real email file with the quotation attached), and a production-shaped `intacct_payload.json` under `runs/<run_id>/` instead of calling SMTP or Intacct. That keeps the assessment focused on agent logic and the human approval gate. Production auth, objects, failure handling, and where the gate sits are described in the decision doc.
+Outbound email send and Sage Intacct writes are mocked by default. Finalize writes `quote.md` (customer quotation), `sent_email.txt`, `sent_email.eml` (a real email file with the quotation attached), and a production-shaped `intacct_payload.json` under `runs/<run_id>/`, instead of calling SMTP or Intacct. That keeps the assessment focused on agent logic and the human approval gate. Production auth, objects, failure handling, and where the gate sits are described in `DECISION.pdf`.
 
 ### Optional: real email send via Gmail (off by default)
 
@@ -102,20 +103,20 @@ Sending is disabled unless you opt in. To enable it, set `GMAIL_ADDRESS` and `GM
 python -m rfq_agent send <run_id> --to you@example.com
 ```
 
-Or use the "Send this quote for real via Gmail" panel in the UI. Sending only works on an approved quote, is idempotent (won't double-send without `--force`), and the sample RFQ recipient domains are fictional — send to your own address. No credentials live in the code; both values are read from the environment.
+Or use the "Send this quote for real via Gmail" panel in the UI. Sending only works on an approved quote, is idempotent (it will not double-send without `--force`), and the sample RFQ recipient domains are fictional, so send to your own address instead. No credentials live in the code; both values are read from the environment.
 
 ## Repo map
 
 ```
 src/rfq_agent/          package: schemas, ingest, extract, match, enrich, assemble, graph, CLI
 src/rfq_agent/nodes/    pipeline node functions
-src/rfq_agent/prompts/  extraction.md + email.md (the only two LLM call sites)
+src/rfq_agent/prompts/  extraction.md and email.md, the only two LLM call sites
 src/rfq_agent/scoring.py  attribute scorer (rung 3)
-catalog/                product_catalog.csv (ERP stand-in)
-rfqs/                   four sample RFQs (PDF + .eml)
+catalog/                product_catalog.csv, standing in for the ERP product master
+rfqs/                   five sample RFQs (PDF and .eml)
 fixtures/extracted/     hand-written ExtractedRFQ JSON for offline matcher tests
-runs/                   per-run artifacts + checkpoints.db (gitignored contents)
+runs/                   per-run artifacts and checkpoints.db (gitignored contents)
 scripts/                verify_*.py and verify_samples.sh
 app.py                  Streamlit review UI
-DECISIONS.md            locked build decisions
+DECISION.pdf            decision doc: problem choice, architecture, and tradeoffs
 ```
