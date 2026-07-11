@@ -8,6 +8,7 @@ removed, the system still runs end to end from the terminal.
 
 from __future__ import annotations
 
+import html
 import json
 import re
 from decimal import Decimal
@@ -257,6 +258,83 @@ def render_line(line, done: bool, catalog, run_id: str) -> dict:
     return decision
 
 
+_HL_COLOR = {
+    "exact_sku": "#1b5e20",
+    "attribute_match": "#0d3b66",
+    "low_confidence": "#8a5000",
+    "unknown_sku": "#7f1d1d",
+    "no_match": "#7f1d1d",
+}
+
+
+def _find_span(raw: str, source_text: str) -> tuple[int, int] | None:
+    """Locate a line's source text in the raw document (whitespace-flexible)."""
+    if not source_text:
+        return None
+    i = raw.find(source_text)
+    if i >= 0:
+        return i, i + len(source_text)
+    toks = [re.escape(t) for t in source_text.split()]
+    if not toks:
+        return None
+    m = re.search(r"\s+".join(toks), raw)
+    return (m.start(), m.end()) if m else None
+
+
+def render_source_highlights(package: QuotePackage, run_id: str) -> None:
+    """Show the raw RFQ with each line's source span highlighted by match type."""
+    doc_path = RUNS_DIR / run_id / "document.json"
+    if not doc_path.exists():
+        return
+    raw = json.loads(doc_path.read_text(encoding="utf-8")).get("raw_text", "")
+    if not raw:
+        return
+
+    spans = []
+    for ln in package.lines:
+        found = _find_span(raw, ln.source_text)
+        if found:
+            spans.append((found[0], found[1], ln))
+    spans.sort(key=lambda s: s[0])
+
+    # Drop overlaps (keep the earliest).
+    placed, last_end = [], -1
+    for s, e, ln in spans:
+        if s >= last_end:
+            placed.append((s, e, ln))
+            last_end = e
+
+    parts, cursor = [], 0
+    for s, e, ln in placed:
+        parts.append(html.escape(raw[cursor:s]))
+        color = _HL_COLOR.get(ln.match.status.value, "#555")
+        label, _ = _status_text(ln.match.status.value)
+        tip = f"Line {ln.line_no}: {label}"
+        if ln.match.matched_sku:
+            tip += f"  ->  {ln.match.matched_sku}"
+        parts.append(
+            f'<span title="{html.escape(tip)}" style="background:{color};'
+            f'color:#fff;border-radius:3px;padding:0 3px;">'
+            f'{html.escape(raw[s:e])}</span>'
+        )
+        cursor = e
+    parts.append(html.escape(raw[cursor:]))
+    body = "".join(parts)
+
+    st.markdown(
+        f'<div style="white-space:pre-wrap;font-family:ui-monospace,monospace;'
+        f'font-size:0.82rem;line-height:1.7;background:rgba(128,128,128,0.08);'
+        f'padding:14px 16px;border-radius:8px;">{body}</div>',
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        "Highlighted = text the agent used for each line. Hover a highlight to "
+        "see the line and its match. "
+        ":green-background[part number] · :blue-background[specifications] · "
+        ":orange-background[needs review] · :red-background[not in catalog]"
+    )
+
+
 def render_review(package: QuotePackage, run_id: str) -> None:
     done = package.status.value in {"approved", "rejected"}
     flagged = [ln for ln in package.lines if _is_flagged(ln)]
@@ -307,6 +385,9 @@ def render_review(package: QuotePackage, run_id: str) -> None:
             f"All {len(package.lines)} lines matched cleanly. "
             "Review below and approve when ready."
         )
+
+    with st.expander("Source document — highlighted by line", expanded=True):
+        render_source_highlights(package, run_id)
 
     st.subheader("Line items")
     decisions = {
