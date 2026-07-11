@@ -6,15 +6,23 @@
 
 ## Problem and rationale
 
-I picked Problem 1: the agent that turns an incoming distributor RFQ into a
-drafted quote and reply email. I chose it because its hard part is *judgment*,
-not generation — correctly matching a plain-English line like "hydraulic hose,
-2-wire braid, 3/4 inch" to the one right catalog SKU, and knowing when *not*
-to answer. That plays to how I think an agent should be built: the LLM does
-language, deterministic code does anything involving money, and a human
-approves before anything leaves the building. It also shipped with real
-fixture data (four RFQs, a 33-SKU catalog), which let me prove correctness to
-the penny rather than argue it.
+I picked Problem 1 — turning an incoming distributor RFQ into a drafted quote
+and reply email — because it lines up almost exactly with work I have already
+done. In my robotic process automation internship I built flows that pulled
+data out of incoming emails, cleaned it, and organized it into something the
+business could act on, which is the heart of this problem. I have also worked
+in inventory management, so matching line items to a product catalog and
+reasoning about pricing and availability is familiar ground for me rather than
+something I would be figuring out for the first time. That made it a clear
+choice over the marketing-content alternative, which sits further from my
+hands-on background. It also happens to be interesting for the right reason:
+the hard part is *judgment*, not text generation — matching a plain-English
+line like "hydraulic hose, 2-wire braid, 3/4 inch" to the one right catalog
+SKU, and knowing when *not* to answer. That shaped my whole approach: the LLM
+handles language, deterministic code handles anything involving money, and a
+human approves before anything leaves the building. The problem also shipped
+with real fixture data (four RFQs, a 33-SKU catalog), which let me prove
+correctness to the penny rather than argue it.
 
 ## Approach and build-vs-buy
 
@@ -128,7 +136,10 @@ priced package with per-line rationale → checkpointed human gate →
 recompute-on-edit finalize → mocked delivery. What stays client-specific is
 deliberately thin: the catalog schema and attribute weights, the domain
 synonym table ("2-wire" means SAE 100R2AT), the extraction prompt's vocabulary,
-and the ERP field mapping.
+and the ERP field mapping. To check that this holds beyond the provided data, I
+wrote one additional RFQ of my own in a new format the agent had never seen; it
+handled the full range end to end, including stock-shortfall and deadline-risk
+warnings that none of the four supplied samples even trigger.
 
 ## What I'd do with another week
 
