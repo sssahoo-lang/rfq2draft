@@ -54,6 +54,17 @@ def _catalog():
     return load_catalog_index(CATALOG_CSV)
 
 
+def _clear_line_widgets(run_id: str) -> None:
+    """Drop stale editable-widget state so a reprocessed run shows fresh values."""
+    prefixes = (
+        f"qty_{run_id}_", f"decide_{run_id}_",
+        f"custom_sku_{run_id}_", f"custom_note_{run_id}_",
+    )
+    for k in list(st.session_state.keys()):
+        if k.startswith(prefixes):
+            del st.session_state[k]
+
+
 def _is_flagged(line) -> bool:
     return line.match.needs_human_review or line.unit_price is None
 
@@ -147,6 +158,7 @@ def render_sidebar() -> None:
                 if st.button("Reprocess", use_container_width=True):
                     with st.spinner("Reprocessing..."):
                         result = process_run(selected_rfq)
+                    _clear_line_widgets(result["run_id"])
                     st.session_state.active_run = result["run_id"]
                     st.rerun()
         else:
