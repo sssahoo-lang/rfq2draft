@@ -41,9 +41,16 @@ SECTIONS: list[tuple[str, list[str]]] = [
         "What I built and why",
         [
             "I chose the RFQ problem: turning an incoming distributor RFQ into a "
-            "drafted quote and reply email. It is close to work I have done "
-            "before in email automation and inventory, so the moving parts were "
-            "familiar.",
+            "drafted quote and reply email. I picked it over the other one, the "
+            "marketing content multiplier. That one asks for two kinds of visual "
+            "work, a brand-locked design and a generated image, plus a consistent "
+            "voice across formats, so in a timed build my hours would have gone "
+            "into design rather than the agent I am actually being judged on. The "
+            "RFQ problem is more contained, and it comes down to matching parts, "
+            "pricing them right, and knowing when to stop and ask a person, which "
+            "is a call I can stand behind when someone pushes on it. It is close "
+            "to work I have done before in email automation and inventory, so my "
+            "time went into the hard parts instead of catching up.",
             "The hard part here is not writing text, it is judgment. The system "
             "has to read a plain sentence like \u201chydraulic hose, 2 wire "
             "braid, 3/4 inch,\u201d match it to the exact catalog part, and know "
